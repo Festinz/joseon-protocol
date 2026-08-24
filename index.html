@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steam Inspector: Joseon Protocol — 암행어사</title>
+<style>
+  :root{
+    --ink:#e9e2cf; --bg:#0a0c18; --brass:#c9a55a; --steam:#9fd8d4; --danger:#ff4a3a;
+    --ok:#7fd07f; --warn:#ffa940; --panel:rgba(16,19,42,.82); --line:#3a3f66;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none}
+  html,body{width:100%; height:100%; overflow:hidden; background:var(--bg)}
+  body{font-family:"Noto Sans KR","Malgun Gothic",system-ui,sans-serif; color:var(--ink); cursor:none}
+  #c{position:fixed; inset:0; display:block}
+  .hud{position:fixed; pointer-events:none; z-index:10}
+  .hidden{display:none !important}
+
+  /* ── crosshair ─────────────────────────── */
+  #xhair{left:0; top:0; width:44px; height:44px; margin:-22px 0 0 -22px; z-index:40}
+  #xhair svg{width:100%; height:100%}
+  #xhair.blocked .ring{display:none}
+  #xhair .blockmark{display:none; stroke:#9aa0b8}
+  #xhair.blocked .blockmark{display:block}
+  #exposure{position:absolute; left:52px; top:2px; width:7px; height:40px; border:1px solid var(--line); background:rgba(0,0,0,.35); border-radius:3px; overflow:hidden}
+  #exposure i{position:absolute; bottom:0; left:0; right:0; height:0%; background:var(--danger); opacity:.85; transition:height 60ms linear}
+
+  /* ── top bar ───────────────────────────── */
+  #objective{top:18px; left:50%; transform:translateX(-50%); font-size:16px; font-weight:700; letter-spacing:.06em; color:var(--ink); text-shadow:0 1px 8px #000; text-align:center}
+  #objective small{display:block; font-size:11px; color:var(--brass); letter-spacing:.28em; margin-bottom:2px}
+  #timer{top:52px; left:50%; transform:translateX(-50%); font-size:20px; font-weight:700; color:var(--steam); font-variant-numeric:tabular-nums; text-shadow:0 1px 6px #000}
+  #timer.low{color:var(--danger); animation:blink .5s steps(2) infinite}
+  #score{top:18px; right:22px; text-align:right; font-variant-numeric:tabular-nums}
+  #score .pts{font-size:20px; font-weight:700}
+  #score .combo{font-size:13px; color:var(--brass); font-weight:700; min-height:18px}
+
+  /* ── bottom left: hp / items ───────────── */
+  #plate-l{left:22px; bottom:20px; width:290px}
+  #hpwrap{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px}
+  #hplabel{font-size:11px; letter-spacing:.2em; color:var(--brass); margin-bottom:5px}
+  #hpbar{height:12px; background:#000a; border-radius:6px; overflow:hidden; position:relative}
+  #hpbar .ghost{position:absolute; inset:0; width:100%; background:#c96a5a; transition:width .8s ease .25s}
+  #hpbar .fill{position:absolute; inset:0; width:100%; background:linear-gradient(90deg,#7fd07f,#4f9f5f); transition:width .12s}
+  #items{display:flex; gap:8px; margin-top:8px}
+  .item{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:4px 10px; font-size:12px}
+  .item b{color:var(--steam)}
+  .item.none{opacity:.35}
+
+  /* ── bottom right: weapon/ammo ─────────── */
+  #plate-r{right:22px; bottom:20px; text-align:right}
+  #ammo{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 14px; display:inline-block; min-width:170px}
+  #wname{font-size:12px; color:var(--brass); letter-spacing:.14em; margin-bottom:2px}
+  #ammoval{font-size:26px; font-weight:700; font-variant-numeric:tabular-nums}
+  #ammoval.empty{color:var(--danger); animation:blink .5s steps(2) infinite}
+  #reloadmsg{font-size:11px; color:var(--warn); min-height:15px}
+  #wslots{margin-top:6px; font-size:11px; color:#8f94b5; letter-spacing:.1em}
+  #wslots b{color:var(--ink)}
+
+  /* ── peek badge ────────────────────────── */
+  #peek{left:22px; bottom:118px; display:flex; align-items:center; gap:9px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 13px; font-size:13px; font-weight:700}
+  #peek .arrow{font-size:17px}
+  #peek.fav{border-color:var(--ok)} #peek.fav .arrow,#peek.fav .lb{color:var(--ok)}
+  #peek.unfav{border-color:var(--warn)} #peek.unfav .arrow,#peek.unfav .lb{color:var(--warn)}
+  #peek.neutral .arrow,#peek.neutral .lb{color:#9aa0b8}
+
+  /* ── ult gauge ─────────────────────────── */
+  #ult{left:50%; bottom:20px; transform:translateX(-50%); width:300px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px}
+  #ultrow{display:flex; justify-content:space-between; font-size:11px; letter-spacing:.14em; color:var(--brass); margin-bottom:5px}
+  #ultbar{height:9px; background:#000a; border-radius:5px; overflow:hidden}
+  #ultbar i{display:block; height:100%; width:0%; background:linear-gradient(90deg,#b08d3e,var(--brass)); transition:width .2s}
+  #ult.ready #ultbar i{background:linear-gradient(90deg,var(--brass),#ffe9ad); animation:pulse 1s ease-in-out infinite}
+  #ult.locked{opacity:.65}
+  #ultlock{color:#9aa0b8}
+
+  /* ── recap / banner / warning ──────────── */
+  #recap{left:50%; bottom:96px; transform:translateX(-50%); font-size:14px; color:var(--warn); text-shadow:0 1px 6px #000; font-weight:500}
+  #banner{left:50%; top:38%; transform:translate(-50%,-50%); font-size:42px; font-weight:800; letter-spacing:.2em; color:var(--ink); text-shadow:0 2px 18px #000, 0 0 40px rgba(201,165,90,.5); opacity:0; transition:opacity .18s}
+  #banner.show{opacity:1}
+  #vignette{inset:0; box-shadow:inset 0 0 140px 40px rgba(255,40,20,0); transition:box-shadow .15s; z-index:5}
+  #vignette.warn{box-shadow:inset 0 0 160px 60px rgba(255,40,20,.55)}
+  #flash{inset:0; background:#fff; opacity:0; z-index:60; transition:opacity .1s}
+  #dmgflash{inset:0; background:radial-gradient(ellipse at center, transparent 40%, rgba(200,20,10,.45) 100%); opacity:0; z-index:6; transition:opacity .3s}
+  #dangermark{left:50%; top:24%; transform:translateX(-50%); font-size:20px; font-weight:800; color:var(--danger); letter-spacing:.3em; text-shadow:0 0 18px rgba(255,50,30,.9); opacity:0}
+  #dangermark.show{opacity:1; animation:blink .35s steps(2) infinite}
+
+  @keyframes blink{50%{opacity:.25}}
+  @keyframes pulse{50%{filter:brightness(1.5)}}
+
+  /* ── overlays ──────────────────────────── */
+  .overlay{position:fixed; inset:0; z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; background:radial-gradient(ellipse at 50% 35%, #131735 0%, #0a0c18 75%); cursor:default; text-align:center; padding:20px}
+  .overlay h1{font-size:clamp(26px,4.6vw,44px); letter-spacing:.06em; line-height:1.35; margin-bottom:6px}
+  .overlay .eng{font-size:12px; letter-spacing:.42em; color:var(--brass); margin-bottom:26px; text-transform:uppercase}
+  .overlay p{color:#b9bed8; font-size:14.5px; line-height:1.8; max-width:560px}
+  .btn{pointer-events:auto; cursor:pointer; margin-top:28px; background:none; border:1px solid var(--brass); color:var(--brass); font:inherit; font-size:16px; font-weight:700; letter-spacing:.24em; padding:13px 44px; border-radius:4px; transition:background .2s,color .2s}
+  .btn:hover{background:var(--brass); color:#141021}
+  .keys{margin-top:26px; font-size:12.5px; color:#8f94b5; line-height:2}
+  .keys b{color:var(--ink); border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 7px; font-family:Consolas,monospace; font-size:11.5px}
+
+  /* ceremony */
+  #ceremony .cards{display:flex; gap:22px; margin-top:26px; flex-wrap:wrap; justify-content:center}
+  .handcard{pointer-events:auto; cursor:pointer; position:relative; width:min(300px,42vw); background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px 18px 16px; transition:border-color .2s, transform .2s; text-align:left}
+  .handcard:hover{border-color:var(--brass); transform:translateY(-3px)}
+  .handcard h3{font-size:19px; letter-spacing:.1em; margin-bottom:10px; color:var(--ink)}
+  .handcard svg{width:100%; height:auto; display:block; margin-bottom:10px}
+  .handcard .desc{font-size:12.5px; line-height:1.7; color:#b9bed8}
+  .handcard .desc .g{color:var(--ok); font-weight:700} .handcard .desc .o{color:var(--warn); font-weight:700}
+  .handcard .holdring{position:absolute; inset:0; border-radius:12px; border:3px solid var(--brass); opacity:0; pointer-events:none}
+  .handcard.holding .holdring{opacity:1; animation:none}
+  .handcard .holdfill{position:absolute; left:0; bottom:0; height:4px; width:0%; background:var(--brass); border-radius:0 0 12px 12px; pointer-events:none}
+  #fairness{margin-top:22px; font-size:13px; color:var(--steam); letter-spacing:.04em}
+  #warnperm{margin-top:8px; font-size:13px; color:var(--danger); font-weight:700; letter-spacing:.08em}
+  #holdhint{margin-top:16px; font-size:12px; color:#8f94b5}
+
+  /* ending */
+  #ending .grade{font-size:88px; font-weight:800; color:var(--brass); text-shadow:0 0 50px rgba(201,165,90,.45); margin:8px 0 2px}
+  #ending .gradeword{font-size:15px; color:var(--steam); letter-spacing:.3em; margin-bottom:20px}
+  #endstats{margin-top:10px; font-size:14px; line-height:2.1; color:#c9cde4; font-variant-numeric:tabular-nums}
+  #endstats b{color:var(--ink)}
+
+  /* pause */
+  #pause .box{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:30px 46px}
+  #pause h2{letter-spacing:.2em; margin-bottom:14px}
+  #pause p{font-size:13.5px}
+
+  #mobilewarn{z-index:200}
+  #loaderr{color:var(--danger); font-size:13px; margin-top:14px; white-space:pre-wrap}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<!-- HUD -->
+<div id="vignette" class="hud"></div>
+<div id="dmgflash" class="hud"></div>
+<div id="flash" class="hud"></div>
+<div id="xhair" class="hud">
+  <svg viewBox="0 0 44 44">
+    <g class="ring" fill="none" stroke="#e9e2cf" stroke-width="1.6" opacity=".95">
+      <circle cx="22" cy="22" r="2" fill="#e9e2cf" stroke="none"/>
+      <path d="M22 6v9M22 29v9M6 22h9M29 22h9"/>
+    </g>
+    <g class="blockmark" fill="none" stroke-width="2.4">
+      <path d="M12 12l20 20M32 12l-20 20"/>
+    </g>
+  </svg>
+  <div id="exposure"><i></i></div>
+</div>
+<div id="objective" class="hud"><small>목표</small><span id="objtext">한성으로 진입하라</span></div>
+<div id="timer" class="hud hidden">60</div>
+<div id="score" class="hud"><div class="pts">0</div><div class="combo"></div></div>
+<div id="dangermark" class="hud">위 험</div>
+<div id="banner" class="hud"></div>
+<div id="recap" class="hud"></div>
+<div id="peek" class="hud neutral"><span class="arrow">▲</span><span class="lb">중립 엄폐</span></div>
+<div id="plate-l" class="hud">
+  <div id="hpwrap">
+    <div id="hplabel">체 력</div>
+    <div id="hpbar"><div class="ghost"></div><div class="fill"></div></div>
+  </div>
+  <div id="items">
+    <div class="item" id="it-tonic">탕약 <b>×2</b> <span style="opacity:.6">F</span></div>
+    <div class="item" id="it-smoke">연막 <b>×0</b> <span style="opacity:.6">C</span></div>
+  </div>
+</div>
+<div id="plate-r" class="hud">
+  <div id="ammo">
+    <div id="wname">영천 장총</div>
+    <div id="ammoval">6/60</div>
+    <div id="reloadmsg"></div>
+    <div id="wslots"><b>1</b> 영천 · <span id="ws2">2 집경</span> · <span id="ws3">3 천마도</span></div>
+  </div>
+</div>
+<div id="ult" class="hud locked">
+  <div id="ultrow"><span>궁극기 — 증기 폭격</span><span id="ultlock">🔒 개활지 전용</span></div>
+  <div id="ultbar"><i></i></div>
+</div>
+
+<!-- Overlays -->
+<div id="title" class="overlay">
+  <h1>Steam Inspector<br>朝鮮 프로토콜</h1>
+  <div class="eng">Joseon Protocol · Secret Royal Inspector</div>
+  <p>한성에 증기 요괴가 창궐하였다.<br>어명을 받든 암행어사가 되어 광화문을 지나 경복궁을 수복하라.</p>
+  <button class="btn" id="startbtn">출 정</button>
+  <div class="keys">
+    <b>마우스</b> 조준 &nbsp; <b>좌클릭</b> 사격 &nbsp; <b>Space</b>/<b>우클릭</b> 홀드 = 견착 노출 &nbsp; 놓으면 엄폐<br>
+    <b>R</b> 재장전 &nbsp; <b>F</b> 탕약 &nbsp; <b>C</b> 연막 &nbsp; <b>Q</b> 궁극기 &nbsp; <b>1·2·3</b> 무기 &nbsp; <b>Esc</b> 일시정지 &nbsp; <b>M</b> 음소거
+  </div>
+  <p style="margin-top:18px; font-size:12px; color:#8f94b5">PC · 마우스 전용 · 사운드 권장</p>
+  <div id="loaderr"></div>
+</div>
+
+<div id="ceremony" class="overlay hidden">
+  <h1>마패 수여식</h1>
+  <div class="eng">Choose Your Shoulder</div>
+  <p>총을 어느 어깨에 메겠는가. 견착한 쪽 모서리에서는 총구만 내밀 수 있으나,<br>반대쪽 모서리에서는 몸이 크게 드러난다.</p>
+  <div class="cards">
+    <div class="handcard" id="card-L">
+      <h3>좌견착 <span style="font-size:12px;color:#8f94b5">왼어깨</span></h3>
+      <svg viewBox="0 0 260 120">
+        <rect x="96" y="18" width="70" height="16" fill="rgba(176,141,62,.25)" stroke="#c9a55a"/>
+        <text x="131" y="30" text-anchor="middle" font-size="9" fill="#8f94b5">담장</text>
+        <circle cx="88" cy="74" r="10" fill="none" stroke="#e9e2cf" stroke-width="2"/>
+        <line x1="82" y1="66" x2="62" y2="34" stroke="#9fd8d4" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M76 46 L58 26 L74 22 Z" fill="#7fd07f" opacity=".4"/>
+        <text x="30" y="96" font-size="10" fill="#7fd07f" font-weight="700">좌측 모서리 노출 30%</text>
+        <circle cx="196" cy="74" r="10" fill="none" stroke="#e9e2cf" stroke-width="2"/>
+        <path d="M186 60 L206 26 L166 30 L176 58 Z" fill="#ffa940" opacity=".38"/>
+        <text x="158" y="96" font-size="10" fill="#ffa940" font-weight="700">우측 모서리 노출 65%</text>
+      </svg>
+      <div class="desc">왼쪽 모서리에서 <span class="g">유리 (노출 30%)</span> · 오른쪽 모서리에서는 <span class="o">몸이 크게 나온다 (65%)</span></div>
+      <div class="holdring"></div><div class="holdfill"></div>
+    </div>
+    <div class="handcard" id="card-R">
+      <h3>우견착 <span style="font-size:12px;color:#8f94b5">오른어깨</span></h3>
+      <svg viewBox="0 0 260 120">
+        <rect x="96" y="18" width="70" height="16" fill="rgba(176,141,62,.25)" stroke="#c9a55a"/>
+        <text x="131" y="30" text-anchor="middle" font-size="9" fill="#8f94b5">담장</text>
+        <circle cx="64" cy="74" r="10" fill="none" stroke="#e9e2cf" stroke-width="2"/>
+        <path d="M74 60 L54 26 L94 30 L84 58 Z" fill="#ffa940" opacity=".38"/>
+        <text x="22" y="96" font-size="10" fill="#ffa940" font-weight="700">좌측 모서리 노출 65%</text>
+        <circle cx="172" cy="74" r="10" fill="none" stroke="#e9e2cf" stroke-width="2"/>
+        <line x1="178" y1="66" x2="198" y2="34" stroke="#9fd8d4" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M184 46 L202 26 L186 22 Z" fill="#7fd07f" opacity=".4"/>
+        <text x="152" y="96" font-size="10" fill="#7fd07f" font-weight="700">우측 모서리 노출 30%</text>
+      </svg>
+      <div class="desc">오른쪽 모서리에서 <span class="g">유리 (노출 30%)</span> · 왼쪽 모서리에서는 <span class="o">몸이 크게 나온다 (65%)</span></div>
+      <div class="holdring"></div><div class="holdfill"></div>
+    </div>
+  </div>
+  <div id="fairness">「이 길에는 좌피크 2곳 · 우피크 2곳 · 중립 3곳이 있소. 어느 어깨든 전체 손해는 없소.」</div>
+  <div id="warnperm">⚠ 이 선택은 이번 출정 동안 되돌릴 수 없다</div>
+  <div id="holdhint">카드를 <b>1.5초간 길게 눌러</b> 확정</div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <div class="box">
+    <h2>휴 식</h2>
+    <p id="pauseinfo">견착: — (변경 불가)</p>
+    <p style="margin-top:10px">Esc — 계속 &nbsp;·&nbsp; M — 음소거</p>
+  </div>
+</div>
+
+<div id="ending" class="overlay hidden">
+  <h1>어사 장계 狀啓</h1>
+  <div class="grade">秀</div>
+  <div class="gradeword">수 — 어명을 완벽히 수행하였도다</div>
+  <div id="endstats"></div>
+  <button class="btn" id="againbtn">다시 출정</button>
+</div>
+
+<div id="mobilewarn" class="overlay hidden">
+  <h1>PC 전용</h1>
+  <p>이 게임은 마우스 조준이 필요합니다.<br>PC 브라우저(Chrome/Edge)에서 접속해 주세요.</p>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
