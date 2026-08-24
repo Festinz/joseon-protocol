@@ -31,10 +31,12 @@ const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'),
 renderer.setPixelRatio(Math.min(devicePixelRatio, params.get('perf') === 'low' ? 1.0 : PERF.maxPixelRatio));
 renderer.setSize(innerWidth, innerHeight);
 renderer.autoClear = false;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;   // 야간 필름릭 톤 (Claude-of-Duty 레시피)
+renderer.toneMappingExposure = 1.25;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0c18);
-scene.fog = new THREE.FogExp2(0x0a0c18, PERF.fogDensity);
+scene.background = new THREE.Color(0x0a1220);          // 안개=배경 동일 → 무한 심도
+scene.fog = new THREE.FogExp2(0x0a1220, PERF.fogDensity);
 
 const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.05, PERF.cameraFar);
 

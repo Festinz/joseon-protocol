@@ -23,8 +23,16 @@ function makeSoftCircle() {
   return new THREE.CanvasTexture(c);
 }
 
+let muzzleLight = null, muzzleLightT = -1;
+const gunTracers = []; // 적 연출탄 스트릭 풀
+const rings = [];      // 쇼크웨이브
+
 export function initVfx(sc) {
   scene = sc;
+  // 머즐 포인트라이트 (재사용 1개 — 0.09s 점멸, Claude-of-Duty 값)
+  muzzleLight = new THREE.PointLight(0xffb35c, 0, 6, 2);
+  muzzleLight.layers.enable(1);
+  scene.add(muzzleLight);
   geometry = new THREE.BufferGeometry();
   pPos = new Float32Array(MAXP * 3); pVel = new Float32Array(MAXP * 3);
   pLife = new Float32Array(MAXP); pMaxLife = new Float32Array(MAXP); pSize = new Float32Array(MAXP);
@@ -41,12 +49,19 @@ export function initVfx(sc) {
   pLife.fill(0);
 
   // 이벤트 구독
-  state.on('shotFired', ({ muzzle }) => { burst(muzzle, 4, 0xffd890, 1.2, 120, 0.22); kick(0.5); });
+  state.on('shotFired', ({ muzzle }) => {
+    burst(muzzle, 4, 0xffd890, 1.2, 120, 0.22); kick(0.5);
+    muzzleLight.position.copy(muzzle); muzzleLightT = 0; // 0.09s 점멸
+  });
   state.on('shotHit', ({ point, weak }) => point && burst(point, weak ? 10 : 6, weak ? 0xffe9a0 : 0xbfd8ff, 2.0, 260, 0.16));
-  state.on('decoyShot', (a) => { const m = a.group.getObjectByName('muzzle'); if (m) { m.getWorldPosition(_v); burst(_v, 3, 0xffc070, 1.0, 100, 0.2); } });
+  state.on('decoyShot', (a) => {
+    const m = a.group.getObjectByName('muzzle'); if (!m) return;
+    m.getWorldPosition(_v); burst(_v, 3, 0xffc070, 1.0, 100, 0.2);
+    spawnGunTracer(_v); // 일부러 빗나가는 트레이서 — 총격전 체감
+  });
   state.on('enemyKilled', (a) => { _v.copy(a.group.position); _v.y += 1; burst(_v, 14, 0x9fd8d4, 2.2, 500, 0.3); });
   state.on('bombShotDown', (b) => burst(b.mesh.position, 16, 0xffaa50, 3.0, 400, 0.3));
-  state.on('bombExploded', (b) => { burst(b.mesh.position, 22, 0xff7a40, 3.6, 500, 0.4); kick(2.2); });
+  state.on('bombExploded', (b) => { burst(b.mesh.position, 22, 0xff7a40, 3.6, 500, 0.4); kick(2.2); shockwave(b.mesh.position, 3); });
   state.on('dangerLaunched', (s) => {
     const m = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6),
       new THREE.MeshBasicMaterial({ color: 0xff4030 }));
@@ -68,6 +83,7 @@ export function initVfx(sc) {
   state.on('ultStrike', (i) => {
     const fwd = new THREE.Vector3((i - 2) * 4 + (Math.random() - 0.5) * 2, 0, -14 - Math.random() * 8).applyQuaternion(rig.dolly.quaternion);
     _v.copy(rig.dolly.position).add(fwd); _v.y = 0;
+    shockwave(_v.clone(), 6);
     // 광기둥
     const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.9, 26, 8, 1, true),
       new THREE.MeshBasicMaterial({ color: 0xfff0c0, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -98,6 +114,35 @@ export function burst(pos, n, color, speed, life, size) {
 }
 export function kick(n) { shake = Math.min(4, shake + n); }
 
+// 쇼크웨이브 링 (0.2s 확산 — Claude-of-Duty explosions 레시피)
+export function shockwave(pos, R = 4) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 32),
+    new THREE.MeshBasicMaterial({ color: 0xffe6c0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  m.rotation.x = -Math.PI / 2; m.position.copy(pos); m.position.y += 0.06;
+  scene.add(m); rings.push({ m, t: 0, R });
+}
+
+// 적 연출탄 트레이서 — 카메라 근처를 스치고 지나가는 빗나감 (풀 8)
+function spawnGunTracer(from) {
+  let t = gunTracers.find(x => !x.mesh.visible);
+  if (!t) {
+    if (gunTracers.length >= 8) return;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.03),
+      new THREE.MeshBasicMaterial({ color: 0xffc27a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+    t = { mesh, vel: new THREE.Vector3(), t: 0, ttl: 0 };
+    scene.add(mesh); gunTracers.push(t);
+  }
+  const camPos = rig.camera.getWorldPosition(new THREE.Vector3());
+  // 카메라에서 1.5~3.5m 벗어난 지점을 향해
+  const miss = camPos.add(new THREE.Vector3((Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 2), (Math.random() - 0.3) * 2, 0));
+  const dir = miss.sub(from).normalize();
+  t.mesh.visible = true;
+  t.mesh.position.copy(from);
+  t.vel.copy(dir).multiplyScalar(90); // 화면에서 읽히는 클램프 속도
+  t.ttl = 0.5; t.t = 0;
+  t.mesh.lookAt(t.mesh.position.clone().add(dir)); t.mesh.rotateY(Math.PI / 2);
+}
+
 export function updateVfx(dt) {
   // 파티클
   for (let i = 0; i < MAXP; i++) {
@@ -118,6 +163,29 @@ export function updateVfx(dt) {
     m.position.lerpVectors(s.from, _cam, k);
     m.position.y += Math.sin(k * Math.PI) * 0.5; // 살짝 호
     const sc = 1 + k * 1.2; m.scale.setScalar(sc);
+  }
+
+  // 머즐 라이트 점멸 (90ms)
+  if (muzzleLightT >= 0) {
+    muzzleLightT += dt;
+    muzzleLight.intensity = muzzleLightT < 90 ? 14 * (1 - muzzleLightT / 90) : 0;
+    if (muzzleLightT > 90) muzzleLightT = -1;
+  }
+  // 쇼크웨이브
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const r = rings[i]; r.t += dt / 200;
+    const k = 1 - Math.pow(1 - Math.min(1, r.t), 2);
+    r.m.scale.setScalar(r.R * (0.35 + 2.05 * k));
+    r.m.material.opacity = 1 - Math.min(1, r.t);
+    if (r.t >= 1) { scene.remove(r.m); r.m.geometry.dispose(); r.m.material.dispose(); rings.splice(i, 1); }
+  }
+  // 적 트레이서
+  for (const t of gunTracers) {
+    if (!t.mesh.visible) continue;
+    t.t += dt / 1000;
+    t.mesh.position.addScaledVector(t.vel, dt / 1000);
+    t.mesh.material.opacity = Math.max(0, 1 - t.t / t.ttl);
+    if (t.t >= t.ttl) t.mesh.visible = false;
   }
 
   // 화면 흔들림 (카메라 로컬 지터, 감쇠)

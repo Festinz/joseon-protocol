@@ -5,10 +5,27 @@ import { WEAPONS, AUTO_RELOAD } from './config.js';
 import { state, now } from './state.js';
 import { rig } from './rail.js';
 import { instantiate } from './assets.js';
+import { getNDC } from './input.js';
 
 const vmRoot = new THREE.Group(); // shoulderRig 에 부착, layer 1
 const vms = {};
-let kick = 0, coveredSince = 0, switchingUntil = 0;
+let coveredSince = 0, switchingUntil = 0;
+
+// 스프링-댐퍼 (Claude-of-Duty 반동/스웨이 값)
+class Spring {
+  constructor(freq, zeta) { this.f = freq; this.z = zeta; this.x = 0; this.v = 0; this.t = 0; }
+  update(dt) {
+    const w = 2 * Math.PI * this.f;
+    this.v += (-w * w * (this.x - this.t) - 2 * this.z * w * this.v) * dt;
+    this.x += this.v * dt;
+    return this.x;
+  }
+}
+const recPitch = new Spring(8.5, 0.42);   // 반동 회전
+const recKick = new Spring(8.5, 0.42);    // 후퇴
+const swayX = new Spring(5.4, 0.46);      // 조준 이동 스웨이
+const swayY = new Spring(5.4, 0.46);
+let lastNdcX = 0, lastNdcY = 0;
 
 export function initWeapons3D() {
   vmRoot.name = 'viewmodelRoot';
@@ -62,7 +79,8 @@ export function consumeShot() {
   const w = state.weapons[state.currentWeapon];
   const cfg = WEAPONS[state.currentWeapon];
   w.mag -= 1; w.lastFire = now();
-  kick = cfg.kick;
+  recPitch.v -= cfg.kick * 1.1;   // 회전 반동 임펄스 (스프링 복원)
+  recKick.v += cfg.kick * 0.8;
   if (w.mag === 0) state.emit('magEmpty');
   state.emit('ammoChanged');
 }
@@ -118,11 +136,23 @@ export function updateWeapons(dt) {
     if (w.mag < WEAPONS[state.currentWeapon].mag && w.reserve > 0 && !w.reloading) doReload(state.currentWeapon);
   }
 
-  // 뷰모델 반동/바브
-  kick = Math.max(0, kick - dt * 0.35);
+  // 뷰모델: 스프링 반동 + 조준 스웨이 + idle 바브
+  const dts = Math.min(0.05, dt / 1000);
+  const ndc = getNDC();
+  swayX.t = Math.max(-0.05, Math.min(0.05, -(ndc.ndcX - lastNdcX) / Math.max(dts, 1e-4) * 0.019 * 0.15));
+  swayY.t = Math.max(-0.04, Math.min(0.04, (ndc.ndcY - lastNdcY) / Math.max(dts, 1e-4) * 0.014 * 0.15));
+  lastNdcX = ndc.ndcX; lastNdcY = ndc.ndcY;
+  const rp = recPitch.update(dts), rk = recKick.update(dts);
+  const sx = swayX.update(dts), sy = swayY.update(dts);
   const bob = Math.sin(t * 0.004) * 0.004;
   const cur = vms[state.currentWeapon];
-  if (cur) { cur.position.z = kick * 1.6; cur.position.y = bob - (state.player.state === 'COVERED' ? 0.10 : 0); cur.rotation.x = kick * 1.2; }
+  if (cur) {
+    cur.position.z = rk;
+    cur.position.x = sx;
+    cur.position.y = bob + sy - (state.player.state === 'COVERED' ? 0.10 : 0);
+    cur.rotation.x = -rp * 2.2 + sy * 0.6;
+    cur.rotation.y = sx * 0.8;
+  }
 }
 
 export function muzzleWorld(out) {

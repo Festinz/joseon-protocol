@@ -3,6 +3,7 @@
 // 막판: 천장 붕괴 → fieldType open 전환 → 궁극기 해금 (PPTX 규칙과 맞물리는 피날레).
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { PLAYER, DANGER } from './config.js';
 import { state, now } from './state.js';
 import { instantiate } from './assets.js';
@@ -34,6 +35,13 @@ export function initBossFight(node, isContinue = false) {
     group.scale.setScalar(1.5); // 위압감 — 히트 프록시·포탑 월드 좌표는 자동 반영
     sc.add(group);
     const inner = group.children[0];
+    // Meshy GLB 몸체 스왑 (게임플레이 파츠는 절차 유지 — 실패해도 무결)
+    new GLTFLoader().load('assets/models/gobungi_body.glb', (g) => {
+      const body = inner.getObjectByName('body'); if (body) body.visible = false;
+      g.scene.scale.setScalar(0.78);
+      g.scene.traverse(o => { if (o.isMesh && o.material) { o.material.roughness = Math.min(0.9, o.material.roughness ?? 0.8); } });
+      inner.add(g.scene);
+    }, undefined, () => {});
     const turrets = [];
     for (let i = 0; i < 4; i++) {
       const t = inner.getObjectByName('turret' + i);

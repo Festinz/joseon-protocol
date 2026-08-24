@@ -36,6 +36,7 @@ export function unlockAudio() { // 첫 클릭에서 호출 (자동재생 정책)
   if (ctx) { ctx.resume(); return; }
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   master = ctx.createGain(); comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -8; comp.ratio.value = 9; comp.attack.value = 0.002; comp.release.value = 0.18; // 리미터 (레이어드 총성 클리핑 방지)
   sfxGain = ctx.createGain(); bgmGain = ctx.createGain();
   sfxGain.gain.value = 0.5; bgmGain.gain.value = 0.16;
   sfxGain.connect(master); bgmGain.connect(master);
@@ -68,16 +69,40 @@ function env(g, a, peak, d) {
 }
 function play(node, g, dur) { node.start(); node.stop(ctx.currentTime + dur); node.onended = () => { node.disconnect(); g.disconnect(); }; }
 
-function sfxShot(vol = 0.9, cutoff = 1600) {
+// 범용 레이어 프리미티브 (연구 레시피 이식)
+function nzL(t0, { type, f0, f1, q = 1, peak, att, dec, delay = 0 }) {
+  const s = ctx.createBufferSource(); s.buffer = noiseBuf(att + dec + 0.1);
+  const f = ctx.createBiquadFilter(); f.type = type; f.Q.value = q;
+  f.frequency.setValueAtTime(f0, t0 + delay);
+  if (f1) f.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t0 + delay + dec);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t0 + delay);
+  g.gain.linearRampToValueAtTime(peak, t0 + delay + att);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + delay + att + dec);
+  s.connect(f); f.connect(g); g.connect(sfxGain);
+  s.start(t0 + delay); s.stop(t0 + delay + att + dec + 0.05);
+  s.onended = () => { s.disconnect(); g.disconnect(); };
+}
+function oscL(t0, { type, f0, f1, peak, att, dec, delay = 0 }) {
+  const o = ctx.createOscillator(); o.type = type;
+  o.frequency.setValueAtTime(f0, t0 + delay);
+  o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t0 + delay + dec);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t0 + delay);
+  g.gain.linearRampToValueAtTime(peak, t0 + delay + att);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + delay + att + dec);
+  o.connect(g); g.connect(sfxGain);
+  o.start(t0 + delay); o.stop(t0 + delay + att + dec + 0.05);
+  o.onended = () => { o.disconnect(); g.disconnect(); };
+}
+
+// 총성 — 5레이어 (blast/body/sub/mech/room slap)
+function sfxShot(vol = 0.8) {
   if (!ctx) return;
-  const src = ctx.createBufferSource(); src.buffer = noiseBuf(0.25);
-  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(cutoff, ctx.currentTime);
-  f.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.18);
-  const g = ctx.createGain(); env(g, 0.002, vol, 0.2);
-  src.connect(f); f.connect(g); g.connect(sfxGain); play(src, g, 0.25);
-  const o = ctx.createOscillator(); o.type = 'sine';
-  o.frequency.setValueAtTime(140, ctx.currentTime); o.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.12);
-  const g2 = ctx.createGain(); env(g2, 0.002, vol * 0.7, 0.13); o.connect(g2); g2.connect(sfxGain); play(o, g2, 0.16);
+  const t = ctx.currentTime;
+  nzL(t, { type: 'bandpass', f0: 2400, f1: 700, peak: 1.0 * vol, att: 0.0006, dec: 0.075 });
+  oscL(t, { type: 'sine', f0: 320, f1: 58, peak: 0.85 * vol, att: 0.001, dec: 0.13 });
+  oscL(t, { type: 'triangle', f0: 150, f1: 44, peak: 0.5 * vol, att: 0.002, dec: 0.18 });
+  nzL(t, { type: 'highpass', f0: 2600, peak: 0.22 * vol, att: 0.001, dec: 0.07, delay: 0.008 });
+  nzL(t, { type: 'bandpass', f0: 900, q: 0.7, peak: 0.3 * vol, att: 0.01, dec: 0.4, delay: 0.02 });
 }
 function sfxHit(weak) {
   if (!ctx) return;
@@ -131,13 +156,15 @@ function sfxBolt() {
 function sfxTick() { if (!ctx) return; const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 300; const g = ctx.createGain(); env(g, 0.001, 0.12, 0.03); o.connect(g); g.connect(sfxGain); play(o, g, 0.05); }
 function sfxBlip() { if (!ctx) return; const o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = 880; const g = ctx.createGain(); env(g, 0.002, 0.12, 0.09); o.connect(g); g.connect(sfxGain); play(o, g, 0.12); }
 function sfxStatic() { if (!ctx) return; const src = ctx.createBufferSource(); src.buffer = noiseBuf(0.3); const g = ctx.createGain(); env(g, 0.01, 0.15, 0.28); src.connect(g); g.connect(sfxGain); play(src, g, 0.3); }
+// 폭발 — crack/thump/sub/body/rumble 5레이어
 function sfxBoom(vol = 1) {
   if (!ctx) return;
-  const src = ctx.createBufferSource(); src.buffer = noiseBuf(0.8);
-  const f = ctx.createBiquadFilter(); f.type = 'lowpass';
-  f.frequency.setValueAtTime(900, ctx.currentTime); f.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.7);
-  const g = ctx.createGain(); env(g, 0.005, 0.8 * vol, 0.75);
-  src.connect(f); f.connect(g); g.connect(sfxGain); play(src, g, 0.8);
+  const t = ctx.currentTime;
+  nzL(t, { type: 'highpass', f0: 1800, f1: 600, peak: 0.9 * vol, att: 0.0015, dec: 0.11 });
+  oscL(t, { type: 'sine', f0: 155, f1: 24, peak: 1.0 * vol, att: 0.003, dec: 0.75 });
+  oscL(t, { type: 'sine', f0: 64, f1: 19, peak: 0.72 * vol, att: 0.01, dec: 0.95 });
+  nzL(t, { type: 'lowpass', f0: 9000, f1: 300, peak: 0.85 * vol, att: 0.004, dec: 0.8 });
+  nzL(t, { type: 'bandpass', f0: 430, f1: 110, q: 0.35, peak: 0.4 * vol, att: 0.1, dec: 2.1 });
 }
 function sfxWhistle() {
   if (!ctx) return;

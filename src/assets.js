@@ -326,7 +326,7 @@ export function buildEnvironment() {
   addWallRun(-16, 4, -40); addWallRun(16, 4, -40);
   addLantern(-7, -6); addLantern(7, -14); addLantern(-7, -30); addLantern(7, -34);
   { // 폭풍의 관문 = 광화문 — 아치는 진짜 개구부 (S3 에서 이 안을 향해 사격)
-    const gate = new THREE.Group(); gate.position.set(0, 0, -52);
+    const gate = new THREE.Group(); gate.position.set(0, 0, -52); gate.name = 'gateProc';
     const baseL = new THREE.Mesh(G.box, MAT.STONE); baseL.scale.set(7.6, 5, 3); baseL.position.set(-6.1, 2.5, 0); gate.add(baseL);
     const baseR = baseL.clone(); baseR.position.x = 6.1; gate.add(baseR);
     const lintel = new THREE.Mesh(G.box, MAT.STONE); lintel.scale.set(20, 1.4, 3); lintel.position.y = 4.4; gate.add(lintel);
@@ -334,6 +334,16 @@ export function buildEnvironment() {
     const mid = new THREE.Mesh(G.box, MAT.DANCHEONG_R); mid.scale.set(17, 2.4, 2.6); mid.position.y = 8; gate.add(mid);
     const roof2 = new THREE.Mesh(G.box, MAT.TILE); roof2.scale.set(20, 1.1, 4.4); roof2.position.y = 9.7; gate.add(roof2);
     env.add(gate);
+    // Gemini 컨셉 빌보드 (아치 투명 컷) — 로드 성공 시 절차 관문의 상부 장식을 대체
+    new THREE.TextureLoader().load('assets/gate_billboard.png', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(17, 17),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, color: 0x9aa2c4, depthWrite: true }));
+      plane.position.set(0, 8.2, -52.2); // 절차 석축(깊이감) 약간 앞
+      env.add(plane);
+      gate.children.forEach(c => { if (c !== baseL && c !== baseR) c.visible = false; }); // 석축만 남기고 대체
+      baseL.position.z = baseR.position.z = -1.4; // 빌보드 뒤(더 먼 쪽)로 — 측면 깊이감 담당
+    }, undefined, () => {});
     // 관문 너머 통로 (S3 교전 공간): 좁은 벽 + 등롱
     const inL = new THREE.Mesh(G.box, MAT.STONE); inL.scale.set(0.8, 3.2, 16); inL.position.set(-4.5, 1.6, -61); env.add(inL);
     const inR = inL.clone(); inR.position.x = 4.5; env.add(inR);
