@@ -33,6 +33,7 @@ function applyHandToVM() {
   const sign = state.hand === 'L' ? -1 : 1;
   vmRoot.position.set(sign * 0.15, -0.18, -0.46);
   vmRoot.scale.set(sign * 0.62, 0.62, 0.62); // 절차 메시 미러 (GLB 교체 시엔 오프셋만 반전 규칙)
+  vmRoot.rotation.y = sign * -0.055;         // 총구를 화면 중앙 쪽으로 살짝 모음
   if (sign === -1) vmRoot.traverse(o => {
     if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.side = THREE.DoubleSide; });
   });

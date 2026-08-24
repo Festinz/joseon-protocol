@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as BGU from 'three/addons/utils/BufferGeometryUtils.js';
 import { PALETTE } from './config.js';
-import { stoneFloorTex, roofTileTex, stoneWallTex, skyTex } from './textures.js';
+import { stoneFloorTex, roofTileTex, stoneWallTex, skyTex, hanjiWindowTex } from './textures.js';
 
 // ── 공유 머티리얼 (드로우콜 배칭의 상한 = 머티리얼 수) ─────────────
 const flat = (c, extra = {}) => new THREE.MeshStandardMaterial({ color: c, flatShading: true, roughness: 0.85, metalness: 0.1, ...extra });
@@ -275,12 +275,22 @@ export function buildEnvironment() {
     addLantern(-3, -57); addLantern(3, -63);
   }
 
-  // 회랑 구간 (z -56 ~ -110): 좁아지는 벽 + 기둥 + 등롱
+  // 회랑 구간 (z -56 ~ -110): 좁아지는 벽 + 단청 기둥 + 처마 + 한지 창 + 증기 배관
   addWallRun(-12, -56, -112); addWallRun(10, -56, -112);
+  const hanjiMat = new THREE.MeshStandardMaterial({ map: hanjiWindowTex(), emissive: 0xe8c87a, emissiveIntensity: 0.65, emissiveMap: hanjiWindowTex() });
   for (let z = -60; z >= -108; z -= 12) {
     const p1 = new THREE.Mesh(G.cyl, MAT.DANCHEONG_R); p1.scale.set(0.4, 3.6, 0.4); p1.position.set(-9.5, 1.8, z); env.add(p1);
     const p2 = new THREE.Mesh(G.cyl, MAT.DANCHEONG_R); p2.scale.set(0.4, 3.6, 0.4); p2.position.set(7.5, 1.8, z - 6); env.add(p2);
+    // 기둥 위 처마 (기와 스트립)
+    const eave1 = new THREE.Mesh(G.box, MAT.TILE); eave1.scale.set(2.6, 0.28, 11.6); eave1.position.set(-10.4, 3.75, z - 5.5); env.add(eave1);
+    const eave2 = new THREE.Mesh(G.box, MAT.TILE); eave2.scale.set(2.6, 0.28, 11.6); eave2.position.set(8.4, 3.75, z - 11.5); env.add(eave2);
+    // 한지 창 (발광 — 블룸 픽업)
+    const w1 = new THREE.Mesh(G.box, hanjiMat); w1.scale.set(0.06, 1.1, 0.8); w1.position.set(-11.5, 1.7, z - 4); env.add(w1);
+    const w2 = new THREE.Mesh(G.box, hanjiMat); w2.scale.set(0.06, 1.1, 0.8); w2.position.set(9.5, 1.7, z - 9); env.add(w2);
   }
+  // 벽면 증기 배관 (황동)
+  const pipe1 = new THREE.Mesh(G.cyl, MAT.BRASS); pipe1.scale.set(0.12, 54, 0.12); pipe1.rotation.x = Math.PI / 2; pipe1.position.set(-11.3, 2.9, -84); env.add(pipe1);
+  const pipe2 = new THREE.Mesh(G.cyl, MAT.BRASS); pipe2.scale.set(0.12, 54, 0.12); pipe2.rotation.x = Math.PI / 2; pipe2.position.set(9.3, 0.5, -84); env.add(pipe2);
   addLantern(-8, -68); addLantern(6, -90);
 
   // 보스룸 (z -112 ~ -140): 넓은 방 + 배경 대형 보일러 실루엣

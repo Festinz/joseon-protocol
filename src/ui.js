@@ -22,16 +22,18 @@ export function initUI({ onRunStart, onRestart }) {
   // ── 마패 수여식: 카드 1.5s 홀드 확정 ──
   for (const hand of ['L', 'R']) {
     const card = $('card-' + hand);
-    let holdStart = 0, raf = 0;
+    let holdStart = 0, iv = 0;
     const fill = card.querySelector('.holdfill');
-    const tick = () => {
-      const k = Math.min(1, (performance.now() - holdStart) / 1500);
-      fill.style.width = (k * 100) + '%';
-      if (k >= 1) { confirmHand(hand); return; }
-      raf = requestAnimationFrame(tick);
-    };
-    card.addEventListener('mousedown', () => { holdStart = performance.now(); card.classList.add('holding'); raf = requestAnimationFrame(tick); });
-    const cancel = () => { cancelAnimationFrame(raf); card.classList.remove('holding'); fill.style.width = '0%'; };
+    card.addEventListener('mousedown', () => {
+      holdStart = performance.now(); card.classList.add('holding');
+      clearInterval(iv);
+      iv = setInterval(() => { // rAF 대신 interval — 탭 상태와 무관하게 동작
+        const k = Math.min(1, (performance.now() - holdStart) / 1500);
+        fill.style.width = (k * 100) + '%';
+        if (k >= 1) { clearInterval(iv); confirmHand(hand); }
+      }, 40);
+    });
+    const cancel = () => { clearInterval(iv); card.classList.remove('holding'); fill.style.width = '0%'; };
     card.addEventListener('mouseup', cancel);
     card.addEventListener('mouseleave', cancel);
   }
