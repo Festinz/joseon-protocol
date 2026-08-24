@@ -104,22 +104,87 @@ export function buildSoldier(variant = 'grunt') {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// 뷰모델 — 영천 장총 (P0 절차판; img2threejs 산출물로 교체 예정)
+// 뷰모델 — 영천 장총 v2 (img2threejs 압축 파이프라인: 레퍼런스 계층 분석 기반 양식화 재구성)
+// 레퍼런스: docs/refs/rifle_yeongcheon.png — 월넛 풀스톡 · 황동 리시버+기어 · 흑철 장총열+밴드 ·
+// 상부 스코프 · 우측 구리 파이프 · 하부 튜브 탄창 · 볼트 핸들 · 태슬
 // ══════════════════════════════════════════════════════════════════
+const MAT_WALNUT = flat(0x5a3b22, { roughness: 0.7 });
+const MAT_COPPER = flat(0xa8623a, { metalness: 0.6, roughness: 0.45 });
+
+function stockGeometry() {
+  // 측면 프로파일 (z-y 평면) → x축 두께 압출. +z = 개머리판, -z = 총구 방향.
+  const s = new THREE.Shape();
+  s.moveTo(0.46, -0.13);   // 개머리판 하단 뒤
+  s.lineTo(0.47, 0.035);   // 개머리판 상단 뒤 (버트 곡선 근사)
+  s.lineTo(0.30, 0.045);   // 콤(comb) 상단
+  s.lineTo(0.18, 0.012);   // 손목(wrist) 파임
+  s.lineTo(-0.10, 0.018);  // 리시버 하부 지지
+  s.lineTo(-0.42, 0.010);  // 포어암 상단
+  s.lineTo(-0.44, -0.030); // 포어암 앞끝
+  s.lineTo(-0.12, -0.045); // 포어암 하단
+  s.lineTo(0.10, -0.052);  // 방아쇠 앞 하단
+  s.lineTo(0.20, -0.075);  // 그립 하강
+  s.quadraticCurveTo(0.36, -0.10, 0.46, -0.13); // 개머리판으로 흐르는 곡선
+  const geo = new THREE.ExtrudeGeometry(s, { depth: 0.055, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.008, bevelSegments: 1, steps: 1 });
+  geo.translate(0, 0, -0.0275); // 압출축 중앙 정렬
+  geo.rotateY(-Math.PI / 2);    // 프로파일 x→월드 z (+z=개머리판), 두께→x축
+  return geo;
+}
+
 export function buildRifleVM() {
   const g = new THREE.Group(); g.name = 'vm_rifle';
+
   const parts = [
-    { geo: G.box, mat: MAT.WOOD, z: 0.18, sx: 0.055, sy: 0.10, sz: 0.52 },                    // 개머리판+몸체
-    { geo: G.box, mat: MAT.WOOD, y: -0.065, z: 0.42, rx: 0.5, sx: 0.05, sy: 0.16, sz: 0.09 }, // 그립
-    { geo: G.cyl, mat: MAT.BLACK, rx: Math.PI / 2, z: -0.38, sx: 0.026, sy: 0.85, sz: 0.026 },// 총열
-    { geo: G.cyl, mat: MAT.BRASS, rx: Math.PI / 2, z: -0.05, sx: 0.045, sy: 0.22, sz: 0.045 },// 황동 리시버
-    { geo: G.cyl, mat: MAT.BRASS, x: 0.05, y: 0.05, z: 0.02, rz: 1.2, sx: 0.02, sy: 0.1, sz: 0.02 }, // 볼트
-    { geo: G.cyl, mat: MAT.STEAM, y: 0.075, z: -0.12, sx: 0.028, sy: 0.09, sz: 0.028 },       // 증기 유리관
-    { geo: G.cyl, mat: MAT.BRASS, y: -0.07, z: -0.28, rx: Math.PI / 2, sx: 0.035, sy: 0.3, sz: 0.035 }, // 하부 증기관
-    { geo: G.torus, mat: MAT.BRASS, z: -0.2, sx: 0.09, sy: 0.09, sz: 0.09 },                  // 압력계 링
+    // ① 총열 (흑철, 리시버 앞 -0.08 에서 총구 -0.86 까지)
+    { geo: G.cyl, mat: MAT.BLACK, rx: Math.PI / 2, z: -0.47, sx: 0.021, sy: 0.78, sz: 0.021 },
+    // 총구 플레어
+    { geo: G.cyl, mat: MAT.BLACK, rx: Math.PI / 2, z: -0.845, sx: 0.028, sy: 0.05, sz: 0.028 },
+    // 총열 황동 밴드 3개
+    { geo: G.cyl, mat: MAT.BRASS, rx: Math.PI / 2, z: -0.30, sx: 0.026, sy: 0.025, sz: 0.026 },
+    { geo: G.cyl, mat: MAT.BRASS, rx: Math.PI / 2, z: -0.52, sx: 0.025, sy: 0.025, sz: 0.025 },
+    { geo: G.cyl, mat: MAT.BRASS, rx: Math.PI / 2, z: -0.74, sx: 0.024, sy: 0.025, sz: 0.024 },
+    // ② 리시버 (황동 박스 + 상판)
+    { geo: G.box, mat: MAT.BRASS, y: 0.032, z: 0.02, sx: 0.055, sy: 0.075, sz: 0.20 },
+    { geo: G.box, mat: MAT.BLACK, y: 0.072, z: 0.02, sx: 0.045, sy: 0.012, sz: 0.16 },
+    // 리시버 대형 기어 디스크 (좌측면 장식 — 우견착 시 화면 안쪽)
+    { geo: G.cyl, mat: MAT_COPPER, x: -0.032, y: 0.035, z: 0.06, rz: Math.PI / 2, sx: 0.042, sy: 0.012, sz: 0.042 },
+    { geo: G.torus, mat: MAT.BRASS, x: -0.038, y: 0.035, z: 0.06, ry: Math.PI / 2, sx: 0.05, sy: 0.05, sz: 0.05 },
+    // ③ 증기 압력 유리관 (리시버 위 — 발광 아이덴티티)
+    { geo: G.cyl, mat: MAT.STEAM, y: 0.10, z: -0.04, sx: 0.016, sy: 0.055, sz: 0.016 },
+    { geo: G.cyl, mat: MAT.BRASS, y: 0.128, z: -0.04, sx: 0.02, sy: 0.012, sz: 0.02 },
+    // ④ 스코프 (황동 튜브 + 마운트 2 + 대물렌즈)
+    { geo: G.cyl, mat: MAT.BRASS, rx: Math.PI / 2, y: 0.105, z: -0.22, sx: 0.014, sy: 0.30, sz: 0.014 },
+    { geo: G.cyl, mat: MAT.BRASS, rx: Math.PI / 2, y: 0.105, z: -0.355, sx: 0.02, sy: 0.03, sz: 0.02 },
+    { geo: G.box, mat: MAT.BLACK, y: 0.085, z: -0.15, sx: 0.012, sy: 0.045, sz: 0.02 },
+    { geo: G.box, mat: MAT.BLACK, y: 0.085, z: -0.30, sx: 0.012, sy: 0.045, sz: 0.02 },
+    { geo: G.cyl, mat: MAT.STEAM, rx: Math.PI / 2, y: 0.105, z: -0.372, sx: 0.016, sy: 0.006, sz: 0.016 },
+    // ⑤ 우측 구리 파이프 (리시버 → 총열 중반)
+    { geo: G.cyl, mat: MAT_COPPER, rx: Math.PI / 2, x: 0.028, y: -0.005, z: -0.20, sx: 0.009, sy: 0.34, sz: 0.009 },
+    { geo: G.torus, mat: MAT_COPPER, x: 0.028, y: -0.005, z: -0.045, sx: 0.018, sy: 0.018, sz: 0.018 },
+    // ⑥ 하부 튜브 탄창 (황동, 포어암 아래)
+    { geo: G.cyl, mat: MAT.BRASS, rx: Math.PI / 2, y: -0.032, z: -0.42, sx: 0.014, sy: 0.42, sz: 0.014 },
+    // ⑦ 방아쇠울 (토러스) + 방아쇠
+    { geo: G.torus, mat: MAT.BRASS, y: -0.075, z: 0.10, rx: 0, sx: 0.032, sy: 0.045, sz: 0.032 },
+    { geo: G.box, mat: MAT.BLACK, y: -0.062, z: 0.095, sx: 0.008, sy: 0.03, sz: 0.01 },
+    // ⑧ 버트 플레이트 (황동)
+    { geo: G.box, mat: MAT.BRASS, y: -0.045, z: 0.475, sx: 0.06, sy: 0.175, sz: 0.015 },
   ];
-  const mesh = mergeParts(parts); g.add(mesh);
-  const muzzle = new THREE.Object3D(); muzzle.name = 'muzzle'; muzzle.position.set(0, 0, -0.82); g.add(muzzle);
+  const stock = new THREE.Mesh(stockGeometry(), MAT_WALNUT); stock.name = 'stock';
+  const mesh = mergeParts(parts); g.add(mesh); g.add(stock);
+
+  // 볼트 피벗 (우측 — 재장전 애니 대상)
+  const bolt = new THREE.Group(); bolt.name = 'boltPivot'; bolt.position.set(0.03, 0.045, 0.05);
+  const handle = new THREE.Mesh(G.cyl, MAT.BRASS); handle.scale.set(0.008, 0.05, 0.008); handle.rotation.z = -1.1; handle.position.set(0.025, 0, 0); bolt.add(handle);
+  const knob = new THREE.Mesh(G.sphere, MAT.BRASS); knob.scale.set(0.016, 0.016, 0.016); knob.position.set(0.05, -0.012, 0); bolt.add(knob);
+  g.add(bolt);
+
+  // ⑨ 태슬 (스톡 앞 — 레퍼런스 아이덴티티 소품)
+  const tassel = new THREE.Group(); tassel.position.set(-0.02, -0.05, -0.40);
+  const cord = new THREE.Mesh(G.cyl, MAT.RED); cord.scale.set(0.003, 0.03, 0.003); cord.position.y = -0.012; tassel.add(cord);
+  const tuft = new THREE.Mesh(G.cone, MAT.RED); tuft.scale.set(0.014, 0.035, 0.014); tuft.rotation.x = Math.PI; tuft.position.y = -0.045; tassel.add(tuft);
+  g.add(tassel);
+
+  const muzzle = new THREE.Object3D(); muzzle.name = 'muzzle'; muzzle.position.set(0, 0, -0.87); g.add(muzzle);
   return g;
 }
 export function buildCarbineVM() {
