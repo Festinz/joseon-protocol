@@ -72,7 +72,12 @@ function attachSoldierGLB(torso, body, variant) {
   const tint = VARIANT_TINT[variant];
   clone.traverse(o => {
     if (o.isMesh && o.material) {
-      if (tint) { o.material = o.material.clone(); o.material.color.multiply(new THREE.Color(tint)); }
+      o.material = o.material.clone();
+      if (tint) o.material.color.multiply(new THREE.Color(tint));
+      // 야간 판독성: 텍스처를 은은히 자체 발광 (달빛만으로는 실루엣이 죽음)
+      o.material.emissive = new THREE.Color(0xffffff);
+      o.material.emissiveMap = o.material.map || null;
+      o.material.emissiveIntensity = 0.38;
     }
   });
   clone.position.y = -0.95;          // torsoPivot(0.95) 기준 바닥 정렬
@@ -366,9 +371,9 @@ export function buildEnvironment() {
     // Gemini 컨셉 빌보드 (아치 투명 컷) — 로드 성공 시 절차 관문의 상부 장식을 대체
     new THREE.TextureLoader().load('assets/gate_billboard.png', (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(17, 17),
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(18.5, 18.5),
         new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, color: 0x9aa2c4, depthWrite: true }));
-      plane.position.set(0, 8.2, -52.2); // 절차 석축(깊이감) 약간 앞
+      plane.position.set(0, 8.6, -52.2); plane.position.y = 18.5 / 2 - 0.6; // 바닥 밀착
       env.add(plane);
       gate.children.forEach(c => { if (c !== baseL && c !== baseR) c.visible = false; }); // 석축만 남기고 대체
       baseL.position.z = baseR.position.z = -1.4; // 빌보드 뒤(더 먼 쪽)로 — 측면 깊이감 담당
@@ -401,7 +406,16 @@ export function buildEnvironment() {
   addWallRun(-20, -112, -142); addWallRun(20, -112, -142);
   { const back = new THREE.Mesh(G.box, MAT.TILE); back.scale.set(44, 14, 1.5); back.position.set(0, 7, -142); env.add(back);
     const gear = new THREE.Mesh(G.torus, MAT.IRON); gear.scale.set(6, 6, 6); gear.position.set(-12, 7, -140.8); env.add(gear);
-    const boiler = new THREE.Mesh(G.cyl, MAT.IRON); boiler.scale.set(4, 10, 4); boiler.position.set(13, 5, -140); env.add(boiler); }
+    const boiler = new THREE.Mesh(G.cyl, MAT.IRON); boiler.scale.set(4, 10, 4); boiler.position.set(13, 5, -140); env.add(boiler);
+    // 근정전 빌보드 (Gemini) — 로드 시 보스룸 배경 대체
+    new THREE.TextureLoader().load('assets/hall_billboard.png', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(34, 34),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, color: 0x7a86ac, depthWrite: true }));
+      plane.position.set(0, 15, -141.5);
+      env.add(plane);
+      back.visible = gear.visible = boiler.visible = false;
+    }, undefined, () => {}); }
   addLantern(-6, -114); addLantern(6, -114);
 
   // 원경 산 실루엣
