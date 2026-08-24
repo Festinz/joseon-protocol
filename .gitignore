@@ -1,3 +1,5 @@
 node_modules/
 *.log
 docs/research/
+assets/raw/
+.img2threejs/
