@@ -55,7 +55,31 @@ const G = {
 
 // ══════════════════════════════════════════════════════════════════
 // 적 유닛 — 갓 + 두루마기 실루엣 (기계 보병). torsoPivot / gunPivot 계층.
+// Meshy 병사 GLB 가 로드되면 몸체를 교체 (변형 마커·프록시·모션은 유지)
 // ══════════════════════════════════════════════════════════════════
+let soldierGLBScene = null;
+const soldierSwapQueue = [];
+const VARIANT_TINT = { grunt: null, marksman: 0xffb0a0, thrower: 0xd8b890, shield: 0xb8c0cc };
+new GLTFLoader().load('assets/models/soldier.glb', (g) => {
+  soldierGLBScene = g.scene;
+  for (const job of soldierSwapQueue) attachSoldierGLB(...job);
+  soldierSwapQueue.length = 0;
+}, undefined, () => {});
+
+function attachSoldierGLB(torso, body, variant) {
+  if (!soldierGLBScene) { soldierSwapQueue.push([torso, body, variant]); return; }
+  const clone = soldierGLBScene.clone(true);
+  const tint = VARIANT_TINT[variant];
+  clone.traverse(o => {
+    if (o.isMesh && o.material) {
+      if (tint) { o.material = o.material.clone(); o.material.color.multiply(new THREE.Color(tint)); }
+    }
+  });
+  clone.position.y = -0.95;          // torsoPivot(0.95) 기준 바닥 정렬
+  clone.name = 'glbBody';
+  body.visible = false;
+  torso.add(clone);
+}
 export function buildSoldier(variant = 'grunt') {
   const root = new THREE.Group(); root.name = 'soldier_' + variant;
   const torso = new THREE.Group(); torso.name = 'torsoPivot'; torso.position.y = 0.95; root.add(torso);
@@ -76,14 +100,19 @@ export function buildSoldier(variant = 'grunt') {
     { geo: G.sphere, mat: MAT.STEAM, x: -0.09, y: 0.64, z: -0.24, sx: 0.05, sy: 0.05, sz: 0.05 }, // 발광 눈(왼)
     { geo: G.sphere, mat: MAT.STEAM, x: 0.09, y: 0.64, z: -0.24, sx: 0.05, sy: 0.05, sz: 0.05 },  // 발광 눈(오)
   ];
+  const body = mergeParts(parts); body.name = 'body'; torso.add(body);
+  // 변형 마커는 병합 밖 별도 메시 — GLB 몸체 스왑 후에도 위협도 색 코딩 유지
   if (variant === 'marksman') { // 붉은 어깨띠 — 색 코딩이 곧 게임플레이
-    parts.push({ geo: G.torus, mat: MAT.DANGER, y: 0.34, rx: Math.PI / 2, rz: 0.5, sx: 0.55, sy: 0.55, sz: 0.9 });
+    const sash = new THREE.Mesh(G.torus, MAT.DANGER); sash.name = 'variantMark';
+    sash.position.y = 0.34; sash.rotation.set(Math.PI / 2, 0, 0.5); sash.scale.set(0.55, 0.55, 0.9); torso.add(sash);
   }
   if (variant === 'thrower') { // 등의 화약통
-    parts.push({ geo: G.cyl, mat: MAT.LEATHER, y: 0.2, z: 0.3, sx: 0.28, sy: 0.5, sz: 0.28 });
-    parts.push({ geo: G.sphere, mat: MAT.DANGER, y: 0.48, z: 0.3, sx: 0.12, sy: 0.12, sz: 0.12 });
+    const pack = new THREE.Group(); pack.name = 'variantMark';
+    const tube = new THREE.Mesh(G.cyl, MAT.LEATHER); tube.position.set(0, 0.2, 0.3); tube.scale.set(0.28, 0.5, 0.28); pack.add(tube);
+    const fuse = new THREE.Mesh(G.sphere, MAT.DANGER); fuse.position.set(0, 0.48, 0.3); fuse.scale.set(0.12, 0.12, 0.12); pack.add(fuse);
+    torso.add(pack);
   }
-  const body = mergeParts(parts); body.name = 'body'; torso.add(body);
+  attachSoldierGLB(torso, body, variant); // 로드돼 있으면 몸체 교체 (없으면 무시)
 
   if (variant === 'shield') { // 철 방패 — 몸통 가림, 머리만 유효
     const sh = new THREE.Mesh(G.box, MAT.IRON); sh.scale.set(0.95, 1.25, 0.08);
