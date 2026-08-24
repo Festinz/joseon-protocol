@@ -50,7 +50,7 @@ if (params.get('perf') !== 'low') {
 // 조명 — 밤의 경복궁: Hemi + 달빛 Dir (그림자 맵 0). 뷰모델 레이어(1)도 비추도록 설정.
 const hemi = new THREE.HemisphereLight(0x5a6ea8, 0x2a2620, 2.2);
 const moon = new THREE.DirectionalLight(0xaabbee, 1.7); moon.position.set(-20, 30, 10);
-const bossGlow = new THREE.PointLight(0x9fd8d4, 0.8, 40); bossGlow.position.set(0, 6, -132);
+const bossGlow = new THREE.PointLight(0x9fd8d4, 2.6, 55); bossGlow.position.set(0, 7, -130);
 for (const l of [hemi, moon, bossGlow]) { l.layers.enable(1); scene.add(l); }
 
 // ── 환경 + 커버 프롭/사선 차단 콜라이더 ────────────────────────────
@@ -155,7 +155,7 @@ requestAnimationFrame(loop);
 if (params.get('debug') === '1') {
   window.STEP = (n = 60, ms = 16) => { for (let i = 0; i < n; i++) step(ms); }; // 렌더 없음 — SNAP 이 렌더
   window.SCENE = scene; window.CAM = camera; window.ACTORS = getActors;
-  window.LIGHTS = { hemi, moon }; window.EN = debugCounts;
+  window.LIGHTS = { hemi, moon }; window.EN = debugCounts; window.R = renderer;
 }
 
 addEventListener('resize', () => {

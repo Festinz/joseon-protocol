@@ -190,6 +190,8 @@ export function buildGobungi() {
     { geo: G.box, mat: MAT.BRASS, y: 4.5, sx: 3.4, sy: 0.5, sz: 2.4 },                // 어깨 플레이트
     { geo: G.sphere, mat: MAT.IRON, y: 5.3, sx: 1.1, sy: 1.0, sz: 1.1 },              // 머리
     { geo: G.cone, mat: MAT.BLACK, y: 6.1, sx: 1.3, sy: 0.7, sz: 1.3 },               // 철 갓
+    { geo: G.sphere, mat: MAT.DANGER, x: -0.32, y: 5.35, z: -0.85, sx: 0.14, sy: 0.14, sz: 0.14 }, // 발광 눈(왼)
+    { geo: G.sphere, mat: MAT.DANGER, x: 0.32, y: 5.35, z: -0.85, sx: 0.14, sy: 0.14, sz: 0.14 },  // 발광 눈(오)
     { geo: G.box, mat: MAT.IRON, x: -1.9, y: 1.0, sx: 0.9, sy: 2.0, sz: 1.1 },        // 다리(왼)
     { geo: G.box, mat: MAT.IRON, x: 1.9, y: 1.0, sx: 0.9, sy: 2.0, sz: 1.1 },         // 다리(오)
     { geo: G.cyl, mat: MAT.BRASS, x: -2.4, y: 3.4, rz: 0.5, sx: 0.3, sy: 2.2, sz: 0.3 }, // 팔 배관(왼)

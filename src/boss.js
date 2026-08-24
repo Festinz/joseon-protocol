@@ -31,6 +31,7 @@ export function initBossFight(node, isContinue = false) {
   if (!boss) {
     const group = instantiate('gobungi');
     group.position.set(0, 0, -134);
+    group.scale.setScalar(1.5); // 위압감 — 히트 프록시·포탑 월드 좌표는 자동 반영
     sc.add(group);
     const inner = group.children[0];
     const turrets = [];
