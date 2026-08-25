@@ -384,16 +384,19 @@ export function buildEnvironment() {
     const mid = new THREE.Mesh(G.box, MAT.DANCHEONG_R); mid.scale.set(17, 2.4, 2.6); mid.position.y = 8; gate.add(mid);
     const roof2 = new THREE.Mesh(G.box, MAT.TILE); roof2.scale.set(20, 1.1, 4.4); roof2.position.y = 9.7; gate.add(roof2);
     env.add(gate);
-    // Gemini 컨셉 빌보드 (아치 투명 컷) — 로드 성공 시 절차 관문의 상부 장식을 대체
-    new THREE.TextureLoader().load('assets/gate_billboard.png', (tex) => {
+    // 관문 빌보드 — 실사 광화문(컷아웃) 우선, 실패 시 Gemini 컨셉 아트 폴백
+    const applyGateBillboard = (tex, width) => {
       tex.colorSpace = THREE.SRGBColorSpace;
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(18.5, 18.5),
+      const h = width / (tex.image.width / tex.image.height);
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, h),
         new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, color: 0x9aa2c4, depthWrite: true }));
-      plane.position.set(0, 8.6, -52.2); plane.position.y = 18.5 / 2 - 0.6; // 바닥 밀착
+      plane.position.set(0, h / 2 - 0.6, -52.2); // 바닥 밀착
       env.add(plane);
       gate.children.forEach(c => { if (c !== baseL && c !== baseR) c.visible = false; }); // 석축만 남기고 대체
       baseL.position.z = baseR.position.z = -1.4; // 빌보드 뒤(더 먼 쪽)로 — 측면 깊이감 담당
-    }, undefined, () => {});
+    };
+    // 실사 광화문은 현대 빌딩·인파가 프레임에 껴서 부적합 — Gemini 컨셉 아트 유지
+    new THREE.TextureLoader().load('assets/gate_billboard.png', (tex) => applyGateBillboard(tex, 18.5), undefined, () => {});
     // 관문 너머 통로 (S3 교전 공간): 좁은 벽 + 등롱
     const inL = new THREE.Mesh(G.box, MAT.STONE); inL.scale.set(0.8, 3.2, 16); inL.position.set(-4.5, 1.6, -61); env.add(inL);
     const inR = inL.clone(); inR.position.x = 4.5; env.add(inR);
@@ -423,15 +426,21 @@ export function buildEnvironment() {
   { const back = new THREE.Mesh(G.box, MAT.TILE); back.scale.set(44, 14, 1.5); back.position.set(0, 7, -142); env.add(back);
     const gear = new THREE.Mesh(G.torus, MAT.IRON); gear.scale.set(6, 6, 6); gear.position.set(-12, 7, -140.8); env.add(gear);
     const boiler = new THREE.Mesh(G.cyl, MAT.IRON); boiler.scale.set(4, 10, 4); boiler.position.set(13, 5, -140); env.add(boiler);
-    // 근정전 빌보드 (Gemini) — 로드 시 보스룸 배경 대체
-    new THREE.TextureLoader().load('assets/hall_billboard.png', (tex) => {
+    // 근정전 빌보드 — 실사(컷아웃) 우선, 실패 시 Gemini 아트 폴백
+    const applyHallBillboard = (tex, width, square, tint) => {
       tex.colorSpace = THREE.SRGBColorSpace;
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(34, 34),
-        new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, color: 0x7a86ac, depthWrite: true }));
-      plane.position.set(0, 15, -141.5);
+      const h = square ? width : width / (tex.image.width / tex.image.height);
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, h),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, color: tint, depthWrite: true }));
+      plane.position.set(0, square ? 15 : h / 2 - 0.4, -141.5);
       env.add(plane);
       back.visible = gear.visible = boiler.visible = false;
-    }, undefined, () => {}); }
+    };
+    // 실사 근정전 (위키미디어 CC — 야간 그레이드 컷아웃) 우선, 실패 시 Gemini 아트
+    new THREE.TextureLoader().load('assets/real_geunjeongjeon_cut.png?v=1',
+      (tex) => applyHallBillboard(tex, 46, false, 0xcdd4ea),  // 이미 야간 그레이드 — 옅은 틴트만
+      undefined,
+      () => new THREE.TextureLoader().load('assets/hall_billboard.png', (tex) => applyHallBillboard(tex, 34, true, 0x7a86ac), undefined, () => {})); }
   addLantern(-6, -114); addLantern(6, -114);
 
   // 원경 산 실루엣

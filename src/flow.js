@@ -144,7 +144,7 @@ function tryUlt() {
   setTimeout(() => {
     for (const a of [...getActors()]) if (a.alive) a.onHit(a.headOnly ? 'hitHead' : 'hitBody', 9999, {});
     if (bossActive()) bossTakeUltDamage(ULT.bossDmg);
-    if (mulgitActive()) mulgitTakeDamage(ULT.bossDmg, false);
+    if (mulgitActive()) mulgitTakeDamage(rig.dolly.position, 1e9, ULT.bossDmg); // 폭격은 전장 전체
     clearDangerShots();
     state.ultCasting = false;
     state.emit('ultCastEnd');
