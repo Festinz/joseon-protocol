@@ -84,7 +84,7 @@ state.on('debugKillWave', () => { for (const a of [...getActors()]) if (a.alive)
 state.on('debugJump', (idx) => {
   clearAll(); clearDangerShots(); resetBoss(); resetMulgit();
   const z = ZONES[Math.min(idx, ZONES.length - 1)];
-  teleport(z.anchor[0], z.enterZ + 2);
+  teleport(z.anchor[0], z.enterZ - 2); // 존 경계 안쪽으로
 });
 
 const startRun = () => { beginRun(); };
