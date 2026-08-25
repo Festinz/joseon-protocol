@@ -2,7 +2,7 @@
 // 3D 뷰모델을 대체한다. 견착(hand)에 따라 좌우 미러 — 영구 선택이 화면에 상시 보인다.
 
 import { state, now } from './state.js';
-import { WEAPONS } from './config.js';
+import { WEAPONS, HEAVY } from './config.js';
 
 const SPRITES = {
   rifle: 'assets/vm/rifle.png',
@@ -44,12 +44,13 @@ export function initVmSprite() {
     if (fx) { fx.classList.remove('go', 'heavy'); void fx.offsetWidth; fx.classList.add('go'); }
   });
   state.on('meleeHeavy', () => {                             // 강공: 크게 치켜들었다 내리친다
-    const dur = 640;
+    const dur = HEAVY.fireMs;   // 후딜 전체를 애니로 덮는다 — 회수 동작이 곧 "아직 못 친다" 의 신호
     override = { sprite: SPRITES.dagger, until: now() + dur, anim: 'heavy', dur };
     const fx = document.getElementById('slashfx');
     if (fx) { fx.classList.remove('go', 'heavy'); void fx.offsetWidth; fx.classList.add('go', 'heavy'); }
   });
   state.on('grenadeThrown', () => { override = { sprite: SPRITES.grenade, until: now() + 650, anim: 'throw' }; });
+  state.on('meleeHeavyCancel', () => { if (override?.anim === 'heavy') { override = null; refresh(); } });
   state.on('ultCastStart', () => { override = { sprite: SPRITES.mapae, until: now() + 1700, anim: 'raise' }; });
   refresh();
 }
@@ -106,12 +107,19 @@ export function updateVmSprite(dt) {
       scale = 1 + 0.12 * Math.sin(s * Math.PI);
     }
     if (override.anim === 'throw') { ay = 30 - 90 * Math.sin(Math.min(1, k * 1.3) * Math.PI); ar = -6 * Math.sin(k * Math.PI); }
-    if (override.anim === 'heavy') {                        // 강공: 윈드업(치켜듦) → 내리찍기
-      if (k < 0.42) { const p = k / 0.42; ax = 70 * p; ay = -130 * p; ar = 58 * p; scale = 1 + 0.12 * p; }
-      else {
-        const p = (k - 0.42) / 0.58, s = 1 - Math.pow(1 - p, 3);
+    if (override.anim === 'heavy') {
+      // 3구간: 치켜듦(~윈드업) → 내리찍기(180ms) → 회수(남은 후딜 전부, 천천히 idle 로)
+      const kUp = HEAVY.windupMs / HEAVY.fireMs;
+      const kDown = kUp + 180 / HEAVY.fireMs;
+      if (k < kUp) { const p = k / kUp; ax = 70 * p; ay = -130 * p; ar = 58 * p; scale = 1 + 0.12 * p; }
+      else if (k < kDown) {
+        const p = (k - kUp) / (kDown - kUp), s = 1 - Math.pow(1 - p, 3);
         ax = 70 - 330 * s; ay = -130 + 250 * s; ar = 58 - 145 * s;
         scale = 1.12 + 0.26 * Math.sin(p * Math.PI);
+      } else {                                              // 회수 — 무거운 칼을 도로 세운다
+        const p = (k - kDown) / (1 - kDown), e = p * p * (3 - 2 * p);
+        ax = -260 * (1 - e); ay = 120 * (1 - e); ar = -87 * (1 - e);
+        scale = 1 + 0.10 * (1 - e);
       }
     }
     if (override.anim === 'raise') { ay = 40 - 70 * Math.min(1, k * 2); scale = 1.06; }
