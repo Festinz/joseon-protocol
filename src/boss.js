@@ -219,7 +219,23 @@ function defeat() {
   state.emit('bossDefeated');
   state.emit('bannerShow', '해태 격파 — 경복궁 수복');
   boss.phase = 0;
+  // phase 0 이면 updateBoss 가 멈춰 코어가 켜진 채로 굳는다. 시체 가슴에 "여기를 쳐라" 가
+  // 계속 빛나고 있으면 승리 신호가 흐려진다 → 코어를 꺼서 격파를 눈으로 확정한다.
+  extinguishCore();
   setTimeout(() => state.emit('runComplete'), 2600);
+}
+
+function extinguishCore() {
+  if (!boss) return;
+  const c = boss.coreOrb;
+  if (c) {
+    c.material.emissiveIntensity = 0;
+    c.material.color.setHex(0x2b2b2e);
+    for (const n of ['coreGlow1', 'coreGlow2']) {
+      const g = c.getObjectByName(n); if (g) g.visible = false;
+    }
+  }
+  if (boss.coreRing) boss.coreRing.visible = false;
 }
 
 export function bossTakeUltDamage(dmg) {
