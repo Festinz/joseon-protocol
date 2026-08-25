@@ -112,6 +112,21 @@ def hip_roof(name, cx, cy, z0, w, d, rise, ridge_len, lift=0.0, overhang_drop=0.
     o = obj_from_bm(bm, name, M_TILE)
     # 용마루
     box(name+'_ridge', cx, cy, z0 + rise + 0.09, ridge_len + 0.35, 0.34, 0.24, M_RIDGE)
+    # 취두(용마루 양끝 장식) — 위로 솟은 블록
+    for sx in (-1, 1):
+        box(name+f'_chwidu{sx}', cx + sx * (ridge_len/2 + 0.12), cy, z0 + rise + 0.32, 0.30, 0.40, 0.52, M_RIDGE)
+    # 잡상 — 추녀마루(모서리 능선) 위 작은 수호상 3개씩 ×4귀
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            for k in range(3):
+                t = 0.22 + k * 0.16
+                jx = cx + sx * ((w/2) * (1-t) + (ridge_len/2) * t)
+                jy = cy + sy * ((d/2) * (1-t) + 0.02 * t)
+                jz = z0 + rise * (t ** 1.55) + lift * ((1-t) ** 2) + 0.10
+                bm2 = bmesh.new()
+                bmesh.ops.create_cone(bm2, cap_ends=True, segments=6, radius1=0.075, radius2=0.03, depth=0.22)
+                o2 = obj_from_bm(bm2, name+f'_js{sx}{sy}{k}', M_RIDGE)
+                o2.location = (jx, jy, jz)
     # 처마 안쪽 단청 띠 (지붕 밑 그림자 면)
     box(name+'_eaveband', cx, cy, z0 - overhang_drop/2, w - 0.5, d - 0.5, overhang_drop, M_DANC_G)
     return o
@@ -172,6 +187,12 @@ arch_portal('gw_archL', -6.2, GY, 2.9, 3.6, 5.2, 3.0, False) # 협문 — 벽감
 arch_portal('gw_archR',  6.2, GY, 2.9, 3.6, 5.2, 3.0, False)
 # 여장(석축 위 담)
 box('gw_par', 0, GY + 1.2, 5.65, 33.6, 0.5, 0.9, M_STONE2)
+# 석축 장대석 줄눈 — 수평 3줄 (거대한 벽이 '쌓은 돌' 로 읽히게)
+for i, zz in enumerate((1.4, 2.8, 4.2)):
+    box(f'gw_joint{i}', 0, GY - 1.56, zz, 35.0, 0.04, 0.06, M_RIDGE)
+# 현판 — 문루 1층 처마 밑 중앙 (검은 바탕 + 황동 테)
+box('gw_plaque_bg', 0, GY - 3.2, 8.35, 2.6, 0.12, 1.15, M_RIDGE)
+box('gw_plaque_rim', 0, GY - 3.14, 8.35, 2.78, 0.06, 1.3, M_BRASS)
 # 문루 1층
 hall_body('gw_f1', 0, GY, 5.9, 16.5, 6.2, 3.0, 7)
 hip_roof('gw_r1', 0, GY, 9.15, 19.5, 8.6, 1.15, 11.0, lift=0.5)
@@ -240,6 +261,9 @@ for side, wx in (('L', -11.4), ('R', 9.4)):
 # 실제 배치: 광화문 → 흥례문 → 영제교(금천) → 근정문. 게임 통로가 이 축선이다.
 # 통행 폭(x -4.5..4.5)을 침범하지 않도록 난간은 x ±3.6 바깥 시각 전용.
 # ═══════════════════════════════════════════════════════════════════
+# 어도(御道) — 임금의 길: 축선 중앙 어두운 박석 띠 (광장 y8..46 + 통로~근정문 y53..111)
+box('eodo_plaza', 0, 27.0, 0.025, 3.4, 38.0, 0.05, M_RIDGE)
+box('eodo_axis',  0, 82.0, 0.025, 3.0, 58.0, 0.05, M_RIDGE)
 # 금천교 난간 (y 58..63): 낮은 석난간 + 법수(끝 기둥)
 for side in (-1, 1):
     x = side * 3.9

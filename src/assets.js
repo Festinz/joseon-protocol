@@ -129,17 +129,25 @@ export function buildSoldier(variant = 'grunt') {
   ];
   const body = mergeParts(parts); body.name = 'body'; torso.add(body);
   // 변형 마커는 병합 밖 별도 메시 — GLB 몸체 스왑 후에도 위협도 색 코딩 유지
-  if (variant === 'marksman') { // 붉은 어깨띠 — 색 코딩이 곧 게임플레이 (명중탄을 쏘는 유일한 적)
-    // 이전엔 G.torus 를 눕혀(rx=PI/2) 반지름 0.5 짜리 고리를 썼다. Meshy 병사 GLB 로 몸체가
-    // 바뀐 뒤로는 몸통보다 커서 가슴을 관통하는 "빨간 링" 으로 보였다. 실제 '띠' 로 교체한다.
-    const sash = new THREE.Mesh(G.box, MAT.DANGER); sash.name = 'variantMark';
-    sash.position.set(0, 0.26, 0.2);        // 가슴 앞면 (+z = 정면)
-    sash.rotation.z = 0.62;                 // 왼어깨 → 오른허리 대각
-    sash.scale.set(0.12, 0.8, 0.1);
-    torso.add(sash);
-    const knot = new THREE.Mesh(G.sphere, MAT.DANGER);   // 허리 매듭 — 실루엣에 점 하나
-    knot.name = 'variantKnot'; knot.position.set(0.2, -0.06, 0.2); knot.scale.setScalar(0.13);
-    torso.add(knot);
+  if (variant === 'marksman') { // 붉은 목도리 — 색 코딩이 곧 게임플레이 (명중탄을 쏘는 유일한 적)
+    // 1차: 눕힌 토러스 → 가슴 관통 링. 2차: 대각 박스 띠 → GLB 몸체에 꽂힌 "빨간 막대기".
+    // 몸을 가로지르는 형태는 어떤 체형에서도 관통 위험이 있다 → 목 둘레를 감싸는 목도리로.
+    // MAT.DANGER(발광 1.2)를 그대로 쓰면 야광 도넛이 된다 — 은은한 전용 재질
+    const scarfMat = new THREE.MeshStandardMaterial({ color: PALETTE.DANGER, emissive: PALETTE.DANGER,
+      emissiveIntensity: 0.5, roughness: 0.8 });
+    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.125, 0.042, 8, 14), scarfMat);
+    scarf.name = 'variantMark';
+    scarf.rotation.x = Math.PI / 2;
+    scarf.position.set(0, 0.40, 0.0);        // 목 (GLB 병사 어깨선 바로 위)
+    scarf.scale.set(1, 1, 1.2);
+    torso.add(scarf);
+    const tail1 = new THREE.Mesh(G.box, scarfMat);     // 등 뒤로 날리는 자락 2장
+    tail1.name = 'variantTail1';
+    tail1.scale.set(0.10, 0.36, 0.03); tail1.position.set(0.08, 0.20, -0.20); tail1.rotation.z = 0.25; tail1.rotation.x = 0.35;
+    torso.add(tail1);
+    const tail2 = tail1.clone(); tail2.name = 'variantTail2';
+    tail2.position.set(-0.05, 0.16, -0.22); tail2.rotation.z = -0.15;
+    torso.add(tail2);
   }
   if (variant === 'thrower') { // 등의 화약통 (등 = -z)
     const pack = new THREE.Group(); pack.name = 'variantMark';
@@ -151,9 +159,30 @@ export function buildSoldier(variant = 'grunt') {
 
   // ⚠ 방향 규약: enemies 는 group.lookAt(player) 로 정렬한다 → three 의 lookAt 은 **+z** 를
   // 대상 쪽으로 향하게 한다. 따라서 몸에 붙는 파츠의 "정면" 은 +z 다. (-z 는 등)
-  if (variant === 'shield') { // 철 방패 — 몸 앞에 세워 몸통을 가린다. 머리만 유효
-    const sh = new THREE.Mesh(G.box, MAT.IRON); sh.scale.set(0.95, 1.25, 0.08);
-    sh.position.set(0, 0.05, 0.42); sh.name = 'shieldPlate'; torso.add(sh);
+  if (variant === 'shield') { // 팽배(彭排) — 곡면 철방패: 림 + 중앙 보스 + 리벳 + 관창
+    const sh = new THREE.Group(); sh.name = 'shieldPlate';
+    // 곡면 몸판: 실린더 측면 일부 (수직축, 얕은 호)
+    const plate = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.52, 0.52, 1.02, 10, 1, true, -0.75, 1.5), MAT.IRON);
+    plate.material = MAT.IRON;
+    sh.add(plate);
+    // 테두리 림 (황동 띠 상·하)
+    const rimT = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.03, 6, 12, 1.5), MAT.BRASS);
+    rimT.rotation.x = Math.PI / 2; rimT.rotation.z = Math.PI / 2 - 0.75; rimT.position.y = 0.49;
+    const rimB = rimT.clone(); rimB.position.y = -0.49;
+    sh.add(rimT, rimB);
+    // 중앙 보스(반구 돌기) + 리벳 4점
+    const bossK = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), MAT.BRASS);
+    bossK.rotation.x = Math.PI / 2; bossK.position.set(0, 0.02, 0.51); sh.add(bossK); bossK.scale.setScalar(0.8);
+    for (const [rx, ry] of [[-0.3, 0.42], [0.3, 0.42], [-0.3, -0.38], [0.3, -0.38]]) {
+      const rv = new THREE.Mesh(G.sphere, MAT.BRASS); rv.scale.setScalar(0.07);
+      rv.position.set(rx * 0.72, ry * 0.78, 0.47); sh.add(rv);
+    }
+    // 상단 관창(내다보는 홈) — 어두운 슬릿: "머리를 노려라" 를 형태로도 말한다
+    const slit = new THREE.Mesh(G.box, MAT.PROXY.clone()); slit.material = new THREE.MeshBasicMaterial({ color: 0x08080a });
+    slit.scale.set(0.28, 0.06, 0.02); slit.position.set(0, 0.28, 0.515); sh.add(slit);
+    sh.position.set(0, 0.0, -0.10);          // 실린더 곡면의 볼록면이 +z(정면)를 향하도록 몸쪽 배치
+    torso.add(sh);
   }
 
   const gun = new THREE.Group(); gun.name = 'gunPivot'; gun.position.set(-0.28, 0.15, 0.15); torso.add(gun);
@@ -527,12 +556,14 @@ export function buildEnvironment() {
     env.add(gate);
     // 관문 빌보드 — 실사 광화문(컷아웃) 우선, 실패 시 Gemini 컨셉 아트 폴백
     const applyGateBillboard = (tex, width) => {
+      if (window.__palaceOK) return;                       // palace 가 먼저 왔으면 아예 안 붙인다
       tex.colorSpace = THREE.SRGBColorSpace;
       const h = width / (tex.image.width / tex.image.height);
       const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, h),
         new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, color: 0x9aa2c4, depthWrite: true }));
       plane.position.set(0, h / 2 - 0.6, -52.2); // 바닥 밀착
       env.add(plane);
+      env.userData.gateBillboard = plane;                  // palace 가 늦게 와도 지울 수 있게 등록
       gate.children.forEach(c => { if (c !== baseL && c !== baseR) c.visible = false; }); // 석축만 남기고 대체
       baseL.position.z = baseR.position.z = -1.4; // 빌보드 뒤(더 먼 쪽)로 — 측면 깊이감 담당
     };
@@ -571,12 +602,14 @@ export function buildEnvironment() {
     const boiler = new THREE.Mesh(G.cyl, MAT.IRON); boiler.scale.set(4, 10, 4); boiler.position.set(13, 5, -140); env.add(boiler);
     // 근정전 빌보드 — 실사(컷아웃) 우선, 실패 시 Gemini 아트 폴백
     const applyHallBillboard = (tex, width, square, tint) => {
+      if (window.__palaceOK) return;
       tex.colorSpace = THREE.SRGBColorSpace;
       const h = square ? width : width / (tex.image.width / tex.image.height);
       const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, h),
         new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, color: tint, depthWrite: true }));
       plane.position.set(0, square ? 15 : h / 2 - 0.4, -141.5);
       env.add(plane);
+      env.userData.hallBillboard = plane;
       back.visible = gear.visible = boiler.visible = false;
     };
     // 실사 근정전 빌보드 — palace.glb 실패 시에만 (폴백 체인 유지)
@@ -590,10 +623,12 @@ export function buildEnvironment() {
   // ── 경복궁 실 지오메트리 (Blender 헤드리스 산출) ─────────────────
   // 광화문 문루·근정문·근정전·행각·품계석. 로드되면 해당 자리의 빌보드·절차 게이트를 끈다.
   // 실패해도 기존 빌보드 체인이 그대로 살아 있으므로 게임은 항상 완주 가능.
-  new GLTFLoader().load('assets/models/palace.glb?v=2', (g) => {
+  new GLTFLoader().load('assets/models/palace.glb?v=3', (g) => {
     window.__palaceOK = true;
+    const eodoMat = new THREE.MeshBasicMaterial({ color: 0x171a24 });   // 어도 — 균일하게 어두운 박석 띠
     g.scene.traverse(o => {
       if (o.isMesh && o.material) {
+        if (/^eodo/.test(o.name)) { o.material = eodoMat; return; }    // 스침각 프레넬로 번쩍이던 것
         o.material.roughness = Math.min(0.95, o.material.roughness ?? 0.85);
         // 야간 판독성 — 달빛만으로 죽지 않게 미세 자체발광
         o.material.emissive = new THREE.Color(0xffffff);
@@ -604,8 +639,31 @@ export function buildEnvironment() {
     env.add(g.scene);
     // 절차 게이트 몸체(석축 제외 전부)와 보스 배경 실루엣을 끈다
     const gp = env.userData.gateProc;
-    if (gp) gp.children.forEach(c => { if (!/base/.test(c.name || '')) c.visible = false; });
+    if (gp) gp.children.forEach(c => { c.visible = false; });   // palace 석축이 대신하므로 전부
     if (env.userData.bossBack) env.userData.bossBack.forEach(m => { m.visible = false; });
+    // 빌보드가 먼저 붙어 있었다면 확실히 걷어낸다 (로드 순서 무관 보장)
+    for (const k of ['gateBillboard', 'hallBillboard']) {
+      const b = env.userData[k];
+      if (b) { if (b.parent) b.parent.remove(b); b.material.dispose(); env.userData[k] = null; }
+    }
+
+    // ── 해태 석상 한 쌍 — 광화문의 상징. 구 네발 해태 모델을 석재로 재활용한다 ──
+    new GLTFLoader().load('assets/models/haetae_statue.glb?v=2', (st) => {
+      const stone = new THREE.MeshStandardMaterial({ color: 0x494640, roughness: 0.98, metalness: 0.0,
+        emissive: 0x494640, emissiveIntensity: 0.03 });
+      st.scene.traverse(o => { if (o.isMesh) o.material = stone; });
+      for (const side of [-1, 1]) {
+        const s2 = st.scene.clone(true);
+        s2.scale.setScalar(0.5);
+        s2.position.set(side * 5.6, 0, -47.2);   // 석축 앞 좌우, 남쪽(플레이어)을 본다
+        s2.rotation.y = Math.PI;
+        env.add(s2);
+        const ped = new THREE.Mesh(G.box, MAT.STONE);
+        ped.scale.set(2.0, 0.5, 3.0); ped.position.set(side * 5.6, 0.25, -47.2);
+        env.add(ped);
+        const s3 = s2; s3.position.y = 0.5;      // 대좌 위로
+      }
+    }, undefined, () => {});
   }, undefined, () => {});
 
   { // 근정전 월대 — 실물 2단 석축 + 중앙 어계(계단) 암시 (시각 전용 1메시).
