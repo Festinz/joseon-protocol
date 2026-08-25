@@ -503,34 +503,7 @@ export function buildEnvironment() {
 
   // 광화문 광장 (z 0 ~ -40): 개활 + 측면 담장 + 광화문 실루엣
   addWallRun(-16, 4, -40); addWallRun(16, 4, -40);
-  // ── 저잣거리: 실사 한옥(북촌, 위키미디어 CC) 빌보드 — 담장 너머 마을 집들 ──
-  // 배치 규칙: 담장(x ±16, 상단 3.46m) 너머에 서므로 "벽 위로 무엇이 보이는가" 가 전부다.
-  // 이전 값(W11 / y2.91 / x±20.5)은 집의 59% 가 담장에 가려 지붕 조각만 둥둥 떠 보였고,
-  // 벽 너머를 보려면 시선을 22° 나 들어야 했다. 크게 키우고 뒤로 물려 처마선이 담장 위에 앉게 한다.
-  new THREE.TextureLoader().load('assets/real_hanok_row_cut.png?v=2', (tex) => {
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const W = 17, H = W / (tex.image.width / tex.image.height);   // 9.9m — 담장 위로 91% 노출
-    // MeshBasicMaterial 은 무광이라 씬 조명을 안 받는다. 틴트를 어둡게 깔아야 밤에 튀지 않는다.
-    const hmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, color: 0x5c6688, depthWrite: true, side: THREE.DoubleSide });
-    const hgeo = new THREE.PlaneGeometry(W, H);
-    for (const [x, z, flip] of [[-24, -6, 1], [-24, -20, -1], [-24, -34, 1], [24, -11, -1], [24, -25, 1], [24, -39, -1]]) {
-      const p = new THREE.Mesh(hgeo, hmat);
-      p.position.set(x, H / 2 + 2.6, z);        // 밑동은 담장 뒤에 숨고 처마부터 보인다
-      p.rotation.y = (x < 0 ? 1 : -1) * Math.PI / 2;
-      p.scale.x = flip;   // 미러 변주
-      env.add(p);
-    }
-  });
-  // 관문 좌우 원경 한옥 지붕 무리 (블루아워 북촌 크롭)
-  new THREE.TextureLoader().load('assets/real_hanok_far_cut.png?v=1', (tex) => {
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const W = 24, H = W / (tex.image.width / tex.image.height);
-    // 원경은 저잣거리보다 한 단계 더 어둡게 — 거리감은 밝기 차이가 만든다
-    const fmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.06, color: 0x49527a, depthWrite: true });
-    const p1 = new THREE.Mesh(new THREE.PlaneGeometry(W, H), fmat);
-    p1.position.set(-19, H / 2 + 2.0, -50); env.add(p1);
-    const p2 = p1.clone(); p2.position.set(20, H / 2 + 1.7, -49.5); p2.scale.x = -1; env.add(p2);
-  });
+  // (실사 한옥 빌보드는 제거 — 근접에서 평면 이미지 티가 났다. 배경은 밤하늘+담장이 담당)
   { // 담장 디테일 (시각 전용 1메시): 하단 장대석 트림 + 6.6m 간격 석주 + 기와 캡 용마루
     const wp = [];
     for (const side of [-1, 1]) {
