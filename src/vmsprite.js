@@ -97,7 +97,13 @@ export function updateVmSprite(dt) {
   const pitchY = pitch * 46;          // 위(+pitch) → 스프라이트 아래로
   const pitchR = -pitch * 3.2 * (state.hand === 'L' ? -1 : 1);
 
+  // 조준감: 원근 단축 — 총구(이미지 좌단)가 화면 안쪽(크로스헤어 방향)으로 후퇴.
+  // 미러(hand-L)는 CSS scale 이 렌더 전체를 뒤집으므로 rotateY 는 자동 보정, rotate 상수만 부호 반전.
+  const mir = state.hand === 'L' ? -1 : 1;
+  const aimYaw = 17 * (1 - adsT * 0.7);          // ADS 시 정렬 (덜 기울임)
+  const aimTilt = -4.5 * (1 - adsT * 0.6);       // 총구 살짝 들어 크로스헤어 쪽으로
   img.style.transform =
-    `translate(${bobX + ax + adsX + swayX * swayScale}px, ${bobY + ay + adsY + kickY + crouchY + pitchY + swayY * swayScale}px) ` +
-    `rotate(${(kickR + ar) * (state.hand === 'L' ? -1 : 1) + pitchR + swayX * swayScale * 0.05}deg) scale(${scale + adsT * 0.16})`;
+    `perspective(1000px) translate(${bobX + ax + adsX + swayX * swayScale}px, ${bobY + ay + adsY + kickY + crouchY + pitchY + swayY * swayScale}px) ` +
+    `rotateY(${aimYaw}deg) ` +
+    `rotate(${(kickR + ar + aimTilt) * mir + pitchR + swayX * swayScale * 0.05}deg) scale(${scale + adsT * 0.16})`;
 }
