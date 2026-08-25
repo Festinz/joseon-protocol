@@ -18,6 +18,7 @@ let bobPhase = 0;
 let kickY = 0, kickR = 0;
 let override = null;         // { sprite, until, anim } — 단도/수류탄/마패 일시 연출
 let adsT = 0;
+let swayX = 0, swayY = 0, swayVX = 0, swayVY = 0; // 룩-스웨이: 시선 반대로 끌리다 스프링 복귀
 
 export function initVmSprite() {
   wrap = document.getElementById('vmwrap');
@@ -53,6 +54,15 @@ export function updateVmSprite(dt) {
   // ADS 보간
   adsT += ((state.ads ? 1 : 0) - adsT) * Math.min(1, dts * 9);
 
+  // 룩-스웨이 (총이 시선을 한 박자 늦게 따라오는 관성) — 스프링-댐퍼
+  const ldx = state._lookDX || 0, ldy = state._lookDY || 0;
+  state._lookDX = 0; state._lookDY = 0; // 소비 후 리셋 (일시정지 중 잔류 방지)
+  swayVX += (-ldx * 2.2 - swayX * 90 - swayVX * 14) * dts;
+  swayVY += (-ldy * 1.8 - swayY * 90 - swayVY * 14) * dts;
+  swayX = Math.max(-46, Math.min(46, swayX + swayVX * dts * 60));
+  swayY = Math.max(-34, Math.min(34, swayY + swayVY * dts * 60));
+  const swayScale = 1 - adsT * 0.65; // ADS 시 스웨이 억제
+
   // 이동 바브
   if (state.playerMoving) bobPhase += dts * 7.5;
   const bobX = Math.sin(bobPhase) * 9 * (state.playerMoving ? 1 : 0.25) * (1 - adsT * 0.7);
@@ -84,6 +94,6 @@ export function updateVmSprite(dt) {
   const crouchY = state.playerCrouching ? 14 : 0;
 
   img.style.transform =
-    `translate(${bobX + ax + adsX}px, ${bobY + ay + adsY + kickY + crouchY}px) ` +
-    `rotate(${(kickR + ar) * (state.hand === 'L' ? -1 : 1)}deg) scale(${scale + adsT * 0.16})`;
+    `translate(${bobX + ax + adsX + swayX * swayScale}px, ${bobY + ay + adsY + kickY + crouchY + swayY * swayScale}px) ` +
+    `rotate(${(kickR + ar) * (state.hand === 'L' ? -1 : 1) + swayX * swayScale * 0.05}deg) scale(${scale + adsT * 0.16})`;
 }

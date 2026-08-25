@@ -141,9 +141,9 @@ if (params.get('debug') === '1') {
       const dt = 16.7 * (state._timescale || 1);
       if (state.phase === 'play' && !state.paused) {
         if (state._god) state.player.hp = Math.max(state.player.hp, 100);
-        updateRail(dt); updateEnemies(dt); updateFlow(dt); updateCombat(dt); updateWeapons(dt);
+        updateRail(dt); updateEnemies(dt); updateFlow(dt); updateCombat(dt); updateWeapons(dt); updateThrowables(dt);
       }
-      updateVfx(dt); updateUI();
+      updateVfx(dt); updateVmSprite(dt); updateUI();
     }
   };
   import('./enemies.js').then(m => { window.ACTORS = m.getActors; window.EN = () => ({ alive: m.aliveCount() }); });
