@@ -58,6 +58,14 @@ if total > max_tris:
         bpy.ops.object.modifier_apply(modifier="dec")
     print(f"DECIMATED {total} -> {sum(len(o.data.polygons) for o in meshes)}")
 
+# 텍스처 2048 상한 + JPEG 압축 export
+for img in bpy.data.images:
+    if img.size[0] > 2048 or img.size[1] > 2048:
+        w, h2 = img.size
+        s = 2048 / max(w, h2)
+        img.scale(max(1, int(w * s)), max(1, int(h2 * s)))
+
 os.makedirs(os.path.dirname(dst), exist_ok=True)
-bpy.ops.export_scene.gltf(filepath=dst, export_format='GLB', export_apply=True)
+bpy.ops.export_scene.gltf(filepath=dst, export_format='GLB', export_apply=True,
+                          export_image_format='JPEG', export_jpeg_quality=85)
 print(f"OK {dst} tris={sum(len(o.data.polygons) for o in meshes)}")

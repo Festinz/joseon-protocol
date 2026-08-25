@@ -67,13 +67,30 @@ export function initBossFight(node, isContinue = false) {
     group.scale.setScalar(1.5); // 위압감 — 히트 프록시·포탑 월드 좌표는 자동 반영
     sc.add(group);
     const inner = group.children[0];
-    // Meshy GLB 몸체 스왑 (게임플레이 파츠는 절차 유지 — 실패해도 무결)
-    new GLTFLoader().load('assets/models/gobungi_body.glb?v=2', (g) => {
+    // Meshy 해태 GLB 스왑 (게임플레이 파츠는 절차 유지 — 실패 시 구 몸체 폴백)
+    const repositionParts = () => {
+      // 포탑 4문 → 해태 어깨/둔부 마운트, 코어 → 가슴 (텍스처의 발광 코어 위치)
+      const mounts = [[-1.35, 2.35, 0.75], [1.35, 2.35, 0.75], [-1.15, 1.95, -1.0], [1.15, 1.95, -1.0]];
+      for (let i = 0; i < 4; i++) {
+        const t = inner.getObjectByName('turret' + i);
+        const hit = inner.getObjectByName('hitTurret' + i);
+        if (t) t.position.set(...mounts[i]);
+        if (hit) hit.position.set(...mounts[i]);
+      }
+      for (const n of ['coreLid', 'coreOrb', 'hitCore']) {
+        const o = inner.getObjectByName(n); if (o) { o.position.set(0, 1.45, 1.35); }
+      }
+      const lid = inner.getObjectByName('coreLid'); if (lid) lid.userData.baseY = 1.45;
+      const hc = inner.getObjectByName('headCore'); if (hc) hc.visible = false;
+    };
+    const swapBody = (path, scale) => new GLTFLoader().load(path, (g) => {
       const body = inner.getObjectByName('body'); if (body) body.visible = false;
-      g.scene.scale.setScalar(0.78);
+      g.scene.scale.setScalar(scale);
       g.scene.traverse(o => { if (o.isMesh && o.material) { o.material.roughness = Math.min(0.9, o.material.roughness ?? 0.8); } });
       inner.add(g.scene);
-    }, undefined, () => {});
+      if (path.includes('haetae')) repositionParts();
+    }, undefined, () => { if (path.includes('haetae')) swapBody('assets/models/gobungi_body.glb?v=2', 0.78); });
+    swapBody('assets/models/haetae.glb?v=1', 1.0);
     const turrets = [];
     for (let i = 0; i < 4; i++) {
       const t = inner.getObjectByName('turret' + i);
@@ -114,7 +131,7 @@ export function initBossFight(node, isContinue = false) {
 
 function setCoreOpen(open) {
   boss.coreOpen = open;
-  boss.coreLid.position.y = open ? 1.3 : 0;
+  boss.coreLid.position.y = (boss.coreLid.userData.baseY || 0) + (open ? 1.3 : 0);
   boss.coreOrb.material.emissiveIntensity = open ? 1.6 : 0.4;
   state.emit('bossCoreState', open);
 }
