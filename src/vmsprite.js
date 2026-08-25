@@ -11,7 +11,6 @@ const SPRITES = {
   hwando: 'assets/vm/dagger.png',     // 근접 — 단도/환도 아트
   dagger: 'assets/vm/dagger.png',
   grenade: 'assets/vm/grenade.png',
-  smoke: 'assets/vm/grenade.png',     // 전용 아트 없음 — 수류탄 공유
   mapae: 'assets/vm/mapae.png',
 };
 
@@ -31,7 +30,6 @@ export function initVmSprite() {
 
   state.on('handChosen', (h) => document.body.classList.toggle('hand-L', h === 'L'));
   state.on('weaponChanged', refresh);
-  state.on('throwableEquipped', refresh);   // 투척물을 들면 뷰모델이 통째로 바뀐다
   state.on('shotFired', () => { kickY = 26; kickR = 3.5; });
   state.on('reloadStart', (key) => {
     const ms = (WEAPONS[key || state.currentWeapon]?.reloadMs || 600) + 250;
@@ -55,10 +53,7 @@ export function initVmSprite() {
   refresh();
 }
 
-function cur() {
-  if (state.throwEquipped) return SPRITES[state.throwEquipped] || SPRITES.grenade;
-  return SPRITES[state.currentWeapon] || SPRITES.rifle;
-}
+function cur() { return SPRITES[state.currentWeapon] || SPRITES.rifle; }
 function refresh() { if (img) img.src = cur(); }
 
 export function updateVmSprite(dt) {
@@ -73,7 +68,7 @@ export function updateVmSprite(dt) {
   }
 
   // ADS 보간 — 근접/투척물은 조준경 자체가 없다
-  const adsGoal = (state.ads && !state.throwEquipped && !WEAPONS[state.currentWeapon]?.melee) ? 1 : 0;
+  const adsGoal = (state.ads && !WEAPONS[state.currentWeapon]?.melee) ? 1 : 0;
   adsT += (adsGoal - adsT) * Math.min(1, dts * 9);
 
   // 룩-스웨이 (총이 시선을 한 박자 늦게 따라오는 관성) — 스프링-댐퍼

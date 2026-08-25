@@ -139,10 +139,6 @@
   .wheelhint{margin-top:14px; font-size:15px; font-weight:700; letter-spacing:.1em; color:var(--ink); text-shadow:0 1px 6px #000}
 
   /* ── 투척류 휠 (G 홀드 — 세로 2등분) ── */
-  #twheel{inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; z-index:70; background:rgba(6,8,20,.55)}
-  .twchip{min-width:220px; text-align:center; background:var(--panel); border:2px solid var(--line); border-radius:12px; padding:14px 26px; font-size:19px; font-weight:800; letter-spacing:.08em; transition:border-color .12s, transform .12s}
-  .twchip.sel{border-color:#ffd24a; color:#ffd24a; transform:scale(1.07); box-shadow:0 0 18px rgba(255,210,74,.35)}
-  .twhint{font-size:13px; color:#8f94b5; margin-top:6px}
 
   /* ── 환도 참격 궤적 (미러는 부모, 회전 애니는 ::before — transform 충돌 방지) ── */
   #slashfx{position:fixed; left:50%; top:52%; width:44vmin; height:44vmin; margin:-22vmin 0 0 -22vmin; pointer-events:none; z-index:8}
@@ -256,13 +252,6 @@
 <div id="slashfx"></div>
 <div id="evadefx"></div>
 
-<!-- 투척류 휠 (G 홀드) -->
-<div id="twheel" class="hud hidden">
-  <div class="twchip sel" id="tw-grenade">진천뢰 <b id="twg">×2</b></div>
-  <div class="twchip" id="tw-smoke">연막 캡슐 <b id="tws">×0</b></div>
-  <div class="twhint">마우스 위/아래 선택 — G 놓으면 손에 든다 · 좌클릭 투척</div>
-</div>
-
 <!-- ADS 조준경 오버레이 (우클릭) -->
 <div id="scope">
   <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
@@ -337,7 +326,7 @@
   </div>
   <div id="items">
     <div class="item" id="it-tonic">탕약 <b>×2</b> <span style="opacity:.6">T</span></div>
-    <div class="item" id="it-smoke">진천뢰 <b>×2</b> <span style="opacity:.6">F 들기 · G 전환</span></div>
+    <div class="item" id="it-smoke">진천뢰 <b>×2</b> <span style="opacity:.6">F 투척</span></div>
     <div id="evadepip" class="ready"><span>회피 Ctrl</span><span class="bar"></span></div>
   </div>
 </div>
@@ -370,8 +359,8 @@
   <button class="btn" id="startbtn">출 정</button>
   <div class="keys">
     <b>WASD</b> 이동 &nbsp; <b>Ctrl</b> 회피(무적) &nbsp; <b>Shift</b> 질주 &nbsp; <b>C</b> 웅크리기 &nbsp; <b>Z/X</b> 좌우 기울이기<br>
-    <b>좌클릭</b> 사격 · 투척 &nbsp; <b>우클릭</b> 조준 <span style="opacity:.65">(환도는 강공 · 투척물은 없음)</span> &nbsp; <b>R</b> 재장전 &nbsp; <b>E</b> 암살<br>
-    <b>F</b> 투척물 들기/내리기 &nbsp; <b>G</b> 투척물 전환(홀드=휠) &nbsp; <b>Space</b> 무기 전환(홀드=휠) &nbsp; <b>Q</b> 궁극기 &nbsp; <b>T</b> 탕약 &nbsp; <b>M</b> 음소거
+    <b>좌클릭</b> 사격 &nbsp; <b>우클릭</b> 조준 <span style="opacity:.65">(환도는 강공)</span> &nbsp; <b>R</b> 재장전 &nbsp; <b>E</b> 암살<br>
+    <b>F</b> 수류탄 투척 &nbsp; <b>Space</b> 무기 전환(홀드=휠) &nbsp; <b>Q</b> 궁극기 &nbsp; <b>T</b> 탕약 &nbsp; <b>M</b> 음소거
   </div>
   <p style="margin-top:18px; font-size:12px; color:#8f94b5">PC · 마우스 전용 · 사운드 권장</p>
   <div id="loaderr"></div>

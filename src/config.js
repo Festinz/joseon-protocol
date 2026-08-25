@@ -69,7 +69,6 @@ export const ULT = {
 // ── 아이템 ──
 export const ITEMS = {
   tonic: { heal: 40, max: 2, start: 2, useMs: 800 },
-  smoke: { durMs: 4000, max: 2, start: 0 },
   grenade: { max: 3, start: 2 },
 };
 
@@ -126,18 +125,18 @@ export const HEAVY = {
 };
 
 // ── 회피 (Ctrl) — 입력 방향 사이드스텝. 스텝 전 구간 무적 ──
+// 세키로식 스텝: 짧고 빠르고 이어붙는다. 무적은 스텝 앞부분에만 —
+// 전 구간 무적 + 짧은 쿨다운이면 무적 가동률이 60%를 넘어 명중탄 시스템이 무의미해진다.
 export const EVADE = {
-  distance: 3.6,       // 스텝 총 이동거리(m)
-  durMs: 330,
-  iframeMs: 330,       // = durMs (스텝 내내 피격 무효 — "확실한 피드백")
-  cooldownMs: 620,     // 스텝 종료 후 재사용 대기 (총 주기 950ms < 해태 교대 볼리 1500ms)
-  rollDeg: 12,         // 좌우 스텝 시 카메라 롤
-  dip: 0.11,           // 몸을 낮추는 상하 딥(m)
+  distance: 3.0,       // 스텝 총 이동거리(m) — 짧고 날카롭게
+  durMs: 260,
+  iframeMs: 182,       // durMs 의 70% — 앞구간만 무적 (연타 가능한 대신 타이밍이 붙는다)
+  cooldownMs: 200,     // 총 주기 460ms — 슥슥 이어진다
+  rollDeg: 12,
+  dip: 0.11,
   fovPunch: 7,
 };
 
-// 투척물 표기명 (손에 드는 무기로 취급 — 좌클릭 투척)
-export const THROW_NAME = { grenade: '진천뢰', smoke: '연막 캡슐' };
 
 // ── 성능 / 레트로 렌더 ──
 export const PERF = {

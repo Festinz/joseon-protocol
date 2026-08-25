@@ -3,7 +3,6 @@
 
 import * as THREE from 'three';
 import { state, now } from './state.js';
-import { ITEMS as SMOKE_ITEMS } from './config.js';
 import { rig } from './rail.js';
 import { getActors } from './enemies.js';
 import { bossActive, bossTakeUltDamage, bossBodyPos } from './boss.js';
@@ -41,29 +40,19 @@ function acquireMesh() {
 
 export function initThrowables(sc) {
   scene = sc;
-  state.on('throwPressed', tryThrow);   // 좌클릭 — 투척물을 손에 들고 있을 때만 도달한다
+  state.on('grenadePressed', tryThrow);   // F — 무기와 무관하게 즉시 투척 (손에 든 무기는 그대로)
 }
 
-// 투척물은 "든 무기"다: 좌클릭으로 던지고, 재고가 0 이 되면 flow 가 이전 무기로 되돌린다.
+// 수류탄 전용. 무기를 바꿔 들 필요 없이 F 한 번이면 던진다.
 function tryThrow() {
   if (state.phase !== 'play' || state.paused || state.player.state === 'DEAD' || state.ultCasting) return;
-  const kind = state.throwEquipped;
-  if (!kind) return;
   if (now() - lastThrow < GRENADE.cooldownMs) return;
-  if ((state.items[kind] || 0) <= 0) { state.emit('throwableDepleted', kind); return; }
+  if ((state.items.grenade || 0) <= 0) { state.emit('recapLine', '수류탄이 없다'); return; }
   lastThrow = now();
-  state.items[kind] -= 1;
+  state.items.grenade -= 1;
   state.emit('itemsChanged');
-  state.emit('grenadeThrown');                     // 뷰모델 던지기 모션 (공용)
-  if (kind === 'smoke') { deploySmoke(); }
-  else { spawnGrenade(); }
-  if ((state.items[kind] || 0) <= 0) state.emit('throwableDepleted', kind);
-}
-
-function deploySmoke() {   // 연막: 투사체 없이 즉시 전개 (flow.useItem 과 달리 재고는 위에서 이미 차감)
-  state.smokeUntil = now() + SMOKE_ITEMS.smoke.durMs;
-  state.emit('clearDangerRequest');
-  state.emit('smokeDeployed');
+  state.emit('grenadeThrown');                     // 뷰모델 던지기 모션 (그대로 유지)
+  spawnGrenade();
 }
 
 function spawnGrenade() {

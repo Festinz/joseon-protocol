@@ -77,7 +77,6 @@ let lastAimBlocked = false;
 
 export function tryFire() {
   if (state.phase !== 'play' || state.paused) return;
-  if (state.throwEquipped) { state.emit('throwPressed'); return; }  // 투척물 장착 중 = 좌클릭 투척
   if (!canFire()) return;
 
   const wcfg = WEAPONS[state.currentWeapon];
@@ -166,7 +165,7 @@ function meleeStrike(cfg) {
 let pendingHeavy = null;
 function tryHeavy() {
   if (state.phase !== 'play' || state.paused) return;
-  if (state.throwEquipped || pendingHeavy) return;
+  if (pendingHeavy) return;
   if (state.player.state === 'DEAD' || state.ultCasting) return;
   const cfg = WEAPONS[state.currentWeapon];
   if (!cfg?.melee) return;                       // 총기는 우클릭 = ADS (input 에서 이미 분기)
@@ -265,8 +264,8 @@ function addUlt(n) {
 let lastHoldFire = 0;
 
 export function updateCombat(dt) {
-  // 홀드 연사 (fireMs 간격) — 투척물은 연사 대상이 아니다 (클릭당 1회)
-  if (!state.throwEquipped && isFireHeld() && now() - lastHoldFire > WEAPONS[state.currentWeapon].fireMs) {
+  // 홀드 연사 (fireMs 간격)
+  if (isFireHeld() && now() - lastHoldFire > WEAPONS[state.currentWeapon].fireMs) {
     lastHoldFire = now(); tryFire();
   }
 
@@ -274,7 +273,7 @@ export function updateCombat(dt) {
   if (pendingHeavy && now() >= pendingHeavy.at) {
     const ph = pendingHeavy; pendingHeavy = null;
     // 선딜 사이에 손에 든 것이 바뀌었거나 죽었으면 스윙은 무효 — 칼을 넣고서 베는 일은 없다
-    const stillValid = state.player.state !== 'DEAD' && !state.throwEquipped &&
+    const stillValid = state.player.state !== 'DEAD' &&
                        !state.ultCasting && WEAPONS[state.currentWeapon]?.melee;
     if (stillValid) resolveHeavy(ph.cfg);
     else state.emit('meleeHeavyCancel');

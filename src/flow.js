@@ -1,7 +1,7 @@
 // flow.js — (자유이동판) 존 진행 컨트롤러: 진입 감지 → 웨이브 → 킬게이트 개방 → 보상.
 // 사망 시 현재 존 입구에서 이어하기 (구간 점수 ×0.5, 무제한).
 
-import { SCORE, ITEMS, ULT, PLAYER, WEAPONS, THROW_NAME } from './config.js';
+import { SCORE, ITEMS, ULT, PLAYER } from './config.js';
 import { state, now } from './state.js';
 import { ZONES, GATES } from './leveldata.js';
 import { rig, teleport, removeGateSolid } from './rail.js';
@@ -19,50 +19,6 @@ let deadAt = 0;
 export function initFlow() {
   state.on('ultPressed', tryUlt);
   state.on('useItem', useItem);
-  // ── 투척물 = 손에 드는 무기 ────────────────────────────────────
-  // F: 장착/해제 토글 · G 탭: 종류 순환(장착 유지) · G 홀드: 휠 · 좌클릭: 투척 · 소진 시 이전 무기 복귀
-  state.on('toggleThrowable', () => {
-    if (state.throwEquipped) unequipThrowable(true);
-    else equipThrowable(preferredThrowable());
-  });
-  state.on('cycleThrowable', () => {   // G 탭: 진천뢰 ↔ 연막
-    const next = (state.throwEquipped || state.selectedThrowable) === 'grenade' ? 'smoke' : 'grenade';
-    state.selectedThrowable = next;
-    equipThrowable(next);
-  });
-  // 총기를 고르면 투척물은 손에서 내려간다 (weapons.trySwitch 가 먼저 실행됨 — 복귀 없이 해제만)
-  state.on('switchWeapon', () => { if (state.throwEquipped) unequipThrowable(false); });
-  state.on('cycleWeapon', () => { if (state.throwEquipped) unequipThrowable(false); });
-  // 마지막 한 발을 던진 뒤 — 던지기 모션이 끝나면 쓰던 무기로 돌아온다
-  state.on('throwableDepleted', () => {
-    setTimeout(() => { if (state.throwEquipped) unequipThrowable(true); }, 700);
-  });
-  state.on('clearDangerRequest', () => clearDangerShots());
-  state.on('stowThrowable', () => unequipThrowable(false));   // R 재장전 등 — 조용히 집어넣기
-  state.on('playerDead', () => { deadAt = now(); });
-  state.on('forceCoverRequest', () => {});
-  state.on('runComplete', () => state.emit('showEnding'));
-  // 무기 휠 (Space 홀드 = 일시정지 + 휠 UI, 마우스 방향으로 선택 → 놓으면 교체)
-  state.on('wheelHold', (held) => {
-    if (state.phase !== 'play' || state.player.state === 'DEAD') return;
-    state.wheelOpen = held; state.paused = held;
-    if (held) { resetWheelVec(); state._wheelPick = state.currentWeapon; }
-    state.emit('wheelShow', held);
-    if (!held && state._wheelPick && state._wheelPick !== state.currentWeapon) {
-      state.emit('switchWeapon', state._wheelPick);
-    }
-  });
-  // 투척류 휠 (G 홀드 = 세로 2등분 선택)
-  state.on('throwWheel', (held) => {
-    if (state.phase !== 'play' || state.player.state === 'DEAD') return;
-    state.twheelOpen = held; state.paused = held;
-    if (held) { resetWheelVec(); state._twPick = state.selectedThrowable; }
-    state.emit('twheelShow', held);
-    if (!held && state._twPick) {
-      state.selectedThrowable = state._twPick;
-      equipThrowable(state._twPick);   // 휠에서 고르면 곧바로 손에 든다
-    }
-  });
   // 멀기트 격파 → Z4 클리어 처리 (보스룸 문 개방)
   state.on('mulgitDefeated', () => {
     const i = ZONES.findIndex(z => z.id === 'Z4');
@@ -187,32 +143,6 @@ function tryUlt() {
   }, ULT.castMs);
 }
 
-// ── 투척물 장착/해제 ────────────────────────────────────────────
-function preferredThrowable() {
-  const order = [state.selectedThrowable, state.selectedThrowable === 'grenade' ? 'smoke' : 'grenade'];
-  return order.find(k => (state.items[k] || 0) > 0) || null;
-}
-function equipThrowable(kind) {
-  if (state.phase !== 'play' || state.player.state === 'DEAD') return;
-  if (!kind) { state.emit('recapLine', '던질 것이 없다'); return; }
-  if ((state.items[kind] || 0) <= 0) { state.emit('recapLine', `${THROW_NAME[kind]}이(가) 없다`); return; }
-  if (!state.throwEquipped) state.weaponBeforeThrow = state.currentWeapon;  // 복귀 지점 기억
-  state.throwEquipped = kind;
-  state.selectedThrowable = kind;
-  state.ads = false;                                  // 투척물엔 조준경이 없다
-  state.emit('throwableEquipped', kind);
-  state.emit('itemsChanged');
-  state.emit('recapLine', `${THROW_NAME[kind]} — 좌클릭 투척 (F 로 무기 복귀)`);
-}
-function unequipThrowable(announce) {
-  if (!state.throwEquipped) return;
-  state.throwEquipped = null;
-  state.emit('throwableEquipped', null);
-  state.emit('itemsChanged');
-  // currentWeapon 은 장착 중에도 그대로였다 — 해제만으로 쓰던 무기로 돌아온다
-  if (announce) state.emit('recapLine', `${WEAPONS[state.currentWeapon].name} 재장착`);
-}
-
 // ── 아이템 ──
 function useItem(kind) {
   if (state.player.state === 'DEAD' || state.ultCasting) return;
@@ -222,11 +152,6 @@ function useItem(kind) {
     state.items.tonic -= 1;
     state.player.usingItemUntil = now() + ITEMS.tonic.useMs;
     setTimeout(() => { state.player.hp = Math.min(PLAYER.hp, state.player.hp + ITEMS.tonic.heal); state.emit('playerHealed'); }, ITEMS.tonic.useMs);
-  } else if (kind === 'smoke') {
-    state.items.smoke -= 1;
-    state.smokeUntil = now() + ITEMS.smoke.durMs;
-    clearDangerShots();
-    state.emit('smokeDeployed');
   }
   state.emit('itemsChanged');
 }

@@ -27,12 +27,9 @@ export const state = {
   currentWeapon: 'rifle',
   unlockedWeapons: ['rifle', 'hwando'],
 
-  items: { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start, grenade: ITEMS.grenade.start },
-  smokeUntil: 0,
-  selectedThrowable: 'grenade',   // 마지막으로 고른 투척물 (G 전환 / 휠)
-  throwEquipped: null,            // 손에 든 투척물 'grenade'|'smoke'|null — 장착 중엔 좌클릭=투척, 우클릭 무효
-  weaponBeforeThrow: 'rifle',     // 투척물 소진 시 되돌아갈 무기
-  ads: false, wheelOpen: false, twheelOpen: false,
+  items: { tonic: ITEMS.tonic.start, grenade: ITEMS.grenade.start },
+  smokeUntil: 0,                  // 연막은 제거됨 — 항상 0 (명중탄 차단 검사가 아직 읽는다)
+  ads: false, wheelOpen: false,
 
   // 회피 (Ctrl)
   evading: false, evadeUntil: 0, evadeReadyAt: 0,
@@ -81,9 +78,7 @@ export function resetRun() {
   state.player.invulnUntil = 0;
   state.currentWeapon = 'rifle';
   state.unlockedWeapons = ['rifle', 'hwando'];
-  state.items = { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start, grenade: ITEMS.grenade.start };
-  state.selectedThrowable = 'grenade';
-  state.throwEquipped = null; state.weaponBeforeThrow = 'rifle';
+  state.items = { tonic: ITEMS.tonic.start, grenade: ITEMS.grenade.start };
   state.evading = false; state.evadeUntil = 0; state.evadeReadyAt = 0;
   state.ads = false; state.wheelOpen = false;
   state.smokeUntil = 0;

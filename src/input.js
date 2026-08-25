@@ -5,13 +5,11 @@ import { WEAPONS } from './config.js';
 
 export const keys = { w: false, a: false, s: false, d: false, shift: false, crouch: false, z: false, x: false };
 
-// 우클릭(ADS)이 허용되는가 — 근접(환도)/투척물 장착 중엔 조준경 자체가 없다
-export function adsAllowed() {
-  return !state.throwEquipped && !WEAPONS[state.currentWeapon]?.melee;
-}
+// 우클릭(ADS)이 허용되는가 — 근접(환도)엔 조준경 자체가 없다
+export function adsAllowed() { return !WEAPONS[state.currentWeapon]?.melee; }
 let lmbHeld = false, rmbHeld = false;
 let mdx = 0, mdy = 0;
-let spaceTimer = 0, gTimer = 0;
+let spaceTimer = 0;
 let wvx = 0, wvy = 0;   // 휠 선택 벡터 — 휠이 열려 있는 동안의 마우스 이동
 export function getWheelVec() { return { x: wvx, y: wvy }; }
 export function resetWheelVec() { wvx = 0; wvy = 0; }
@@ -31,7 +29,7 @@ export function initInput() {
 
   document.addEventListener('mousemove', (e) => {
     if (!isLocked()) return;
-    if (state.wheelOpen || state.twheelOpen) { wvx += e.movementX; wvy += e.movementY; } // 휠 선택으로 라우팅
+    if (state.wheelOpen) { wvx += e.movementX; wvy += e.movementY; }   // 휠 선택으로 라우팅
     else { mdx += e.movementX; mdy += e.movementY; }
   });
   document.addEventListener('contextmenu', e => e.preventDefault());
@@ -43,7 +41,6 @@ export function initInput() {
     if (e.button === 0) { lmbHeld = true; state.emit('firePressed'); }
     if (e.button === 2) {                                         // 우클릭 — 든 무기에 따라 갈린다
       rmbHeld = true;
-      if (state.throwEquipped) return;                            // 투척물: 조준 없음 (무효)
       if (WEAPONS[state.currentWeapon]?.melee) { state.emit('heavyPressed'); return; } // 환도: 강공
       state.ads = true;                                           // 총기: 견착(ADS)
     }
@@ -60,7 +57,7 @@ export function initInput() {
       if (state.phase === 'play' && !state.paused && !state._noAutoPause) state.emit('togglePause');
     } else {
       // 락 성공 → 일시정지 자동 해제 (클릭 한 번으로 복귀)
-      if (state.phase === 'play' && state.paused && !state.wheelOpen && !state.twheelOpen) state.emit('togglePause');
+      if (state.phase === 'play' && state.paused && !state.wheelOpen) state.emit('togglePause');
     }
   });
 
@@ -93,10 +90,7 @@ export function initInput() {
       case 'KeyX': keys.x = true; break;                        // 우 리닝
       case 'KeyR': state.emit('reloadPressed'); break;
       case 'KeyT': state.emit('useItem', 'tonic'); break;       // T = 탕약
-      case 'KeyG': // 탭 = 투척물 토글, 홀드(280ms+) = 투척류 휠
-        gTimer = setTimeout(() => { gTimer = 0; state.emit('throwWheel', true); }, 280);
-        break;
-      case 'KeyF': state.emit('toggleThrowable'); break;        // F = 투척물 손에 들기/내리기
+      case 'KeyF': state.emit('grenadePressed'); break;         // F = 수류탄 투척
       case 'KeyE': state.emit('assassinatePressed'); break;     // E = 암살/상호작용
       case 'KeyQ': state.emit('ultPressed'); break;             // Q = 궁극기
       case 'Space': // 탭 = 다음 무기 전환, 홀드(240ms+) = 무기 휠
@@ -121,10 +115,6 @@ export function initInput() {
       case 'Space':
         if (spaceTimer) { clearTimeout(spaceTimer); spaceTimer = 0; state.emit('cycleWeapon'); }
         else state.emit('wheelHold', false);
-        break;
-      case 'KeyG':
-        if (gTimer) { clearTimeout(gTimer); gTimer = 0; state.emit('cycleThrowable'); }
-        else state.emit('throwWheel', false);
         break;
     }
   });

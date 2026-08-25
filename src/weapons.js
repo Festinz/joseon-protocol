@@ -80,7 +80,7 @@ export function canFire() {
   const w = state.weapons[state.currentWeapon];
   const cfg = WEAPONS[state.currentWeapon];
   const t = now();
-  return state.player.state !== 'DEAD' && !state.throwEquipped && !w.reloading && w.mag > 0 &&
+  return state.player.state !== 'DEAD' && !w.reloading && w.mag > 0 &&
          t - w.lastFire >= cfg.fireMs && t > switchingUntil && t > state.player.usingItemUntil && !state.ultCasting;
 }
 
@@ -104,7 +104,6 @@ function doReload(key) {
 }
 
 function manualReload() { // R = 강제 엄폐 경유 (TC 문법) — cover.forceCover 는 flow 에서 연결
-  if (state.throwEquipped) state.emit('stowThrowable');  // 손에 투척물이 있으면 먼저 집어넣는다
   state.emit('forceCoverRequest');
   doReload(state.currentWeapon);
 }

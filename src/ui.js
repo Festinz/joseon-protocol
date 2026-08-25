@@ -1,7 +1,7 @@
 // ui.js — HUD DOM 갱신 + 오버레이 흐름 (타이틀 → 마패 수여식 → 인게임 → 장계).
 // 견착 피드백 4채널 중 2채널(피크 배지, 노출 미터)이 여기 산다.
 
-import { WEAPONS, SCORE, PLAYER, RAIL, THROW_NAME, EVADE } from './config.js';
+import { WEAPONS, SCORE, PLAYER, RAIL, EVADE } from './config.js';
 import { state, setHand, now } from './state.js';
 import { exposedFraction, isFavorable } from './cover.js';
 import { getWheelVec } from './input.js';
@@ -60,7 +60,6 @@ export function initUI({ onRunStart, onRestart }) {
   // ── HUD 이벤트 바인딩 ──
   state.on('ammoChanged', renderAmmo);
   state.on('weaponChanged', renderAmmo);
-  state.on('throwableEquipped', () => { renderAmmo(); renderItems(); });
   state.on('weaponUnlocked', (k) => { renderSlots(); showBanner(`${WEAPONS[k].name} 획득 — ${k === 'ritual' ? '3' : '2'}번 키`); });
   state.on('reloadStart', () => { $('reloadmsg').textContent = '재장전…'; });
   state.on('reloadDone', () => { $('reloadmsg').textContent = ''; renderAmmo(); });
@@ -116,16 +115,6 @@ export function initUI({ onRunStart, onRestart }) {
     wheelFlashTimer = setTimeout(() => { w.classList.add('hidden'); w.classList.remove('flash'); }, 700);
   });
   state.on('assassinPrompt', (on) => $('assassin').classList.toggle('hidden', !on));
-  state.on('twheelShow', (held) => {   // 투척류 휠 (G 홀드)
-    $('twheel').classList.toggle('hidden', !held);
-    if (held) {
-      $('twhint').textContent = '마우스 위/아래 선택 — G 놓으면 손에 든다 · 좌클릭 투척';
-      $('twg').textContent = '×' + state.items.grenade;
-      $('tws').textContent = '×' + state.items.smoke;
-      $('tw-grenade').classList.toggle('sel', state.selectedThrowable === 'grenade');
-      $('tw-smoke').classList.toggle('sel', state.selectedThrowable === 'smoke');
-    }
-  });
   state.on('meleeSwing', () => {});   // (오디오/뷰모델이 구독 — UI 는 없음)
   state.on('meleeHeavy', () => showRecap('강 공 — 크게 휩쓴다'));
   // ── 회피 피드백: 스텝 시 링 플래시, 무효화된 피격은 골드 플래시 ──
@@ -151,7 +140,7 @@ export function initUI({ onRunStart, onRestart }) {
     document.querySelector('#bossslot i').style.width = Math.max(0, r * 100) + '%';
     if (r <= 0) bossHideTimer = setTimeout(() => $('bossbar').classList.add('hidden'), 1200);
   };
-  state.on('mulgitHp', (r) => showBossBar('멀 기 트', r));
+  state.on('mulgitHp', (r) => showBossBar('사 또', r));
   state.on('bossHpRatio', (r) => showBossBar('해 태', Math.max(0, r)));
   state.on('bossDefeated', () => showBossBar('해 태', 0));
   state.on('gateOpened', () => {});
@@ -170,17 +159,6 @@ function renderHp() {
 }
 function renderAmmo() {
   const w = state.weapons[state.currentWeapon]; const cfg = WEAPONS[state.currentWeapon];
-  if (state.throwEquipped) {                                // 투척물을 손에 들었다 — 좌클릭 투척
-    const k = state.throwEquipped;
-    $('wname').textContent = THROW_NAME[k];
-    $('magval').textContent = state.items[k];
-    $('resval').textContent = '—';
-    $('magchip').classList.toggle('empty', (state.items[k] || 0) === 0);
-    $('reloadmsg').textContent = `좌클릭 투척 · F 로 ${WEAPONS[state.currentWeapon].name} 복귀`;
-    renderSlots();
-    renderWheelHl(state.currentWeapon);
-    return;
-  }
   $('wname').textContent = cfg.name;
   if (cfg.melee) {                                          // 환도: 탄약 없음 (좌 경공 / 우 강공)
     $('magval').textContent = '—'; $('resval').textContent = '—';
@@ -217,16 +195,6 @@ function updateWheelPick() {
   if (best && best !== state._wheelPick) { state._wheelPick = best; renderWheelHl(best); }
 }
 // 투척류 휠: 마우스 상/하 → 수류탄/연막
-function updateTwheelPick() {
-  const v = getWheelVec();
-  if (Math.abs(v.y) < 16) return;
-  const pick = v.y < 0 ? 'grenade' : 'smoke';
-  if (pick !== state._twPick) {
-    state._twPick = pick;
-    $('tw-grenade').classList.toggle('sel', pick === 'grenade');
-    $('tw-smoke').classList.toggle('sel', pick === 'smoke');
-  }
-}
 function renderSlots() {
   $('ws2').style.opacity = state.unlockedWeapons.includes('carbine') ? 1 : 0.3;
   $('ws3').style.opacity = state.unlockedWeapons.includes('ritual') ? 1 : 0.3;
@@ -237,18 +205,9 @@ function renderSlots() {
 }
 function renderItems() {
   $('it-tonic').innerHTML = `탕약 <b>×${state.items.tonic}</b> <span style="opacity:.6">T</span>`;
-  const sel = state.throwEquipped || state.selectedThrowable;
-  const held = !!state.throwEquipped;
-  const chip = (k, label) => {
-    const on = sel === k;
-    const col = on ? (held ? 'color:#9fd8d4' : 'color:#ffd24a') : 'opacity:.55';
-    return `<b style="${col}">${held && on ? '▸ ' : ''}${label} ×${state.items[k]}</b>`;
-  };
-  $('it-smoke').innerHTML =
-    `${chip('grenade', '진천뢰')} · ${chip('smoke', '연막')} ` +
-    `<span style="opacity:.6">${held ? '좌클릭 투척 · F 해제' : 'F 들기 · G 전환'}</span>`;
+  $('it-smoke').innerHTML = `진천뢰 <b>×${state.items.grenade}</b> <span style="opacity:.6">F 투척</span>`;
   $('it-tonic').classList.toggle('none', state.items.tonic === 0);
-  $('it-smoke').classList.toggle('none', state.items.smoke === 0 && state.items.grenade === 0);
+  $('it-smoke').classList.toggle('none', state.items.grenade === 0);
 }
 function renderUlt() {
   const el = $('ult');
@@ -298,7 +257,6 @@ function showRecap(text) {
 export function updateUI() {
   document.querySelector('#exposure i').style.height = Math.round(exposedFraction() * 100) + '%';
   if (state.wheelOpen) updateWheelPick();
-  if (state.twheelOpen) updateTwheelPick();
   if (state.phase === 'play') renderPeekBadge();
   const danger = now() < dangerUntil;
   $('vignette').classList.toggle('warn', danger);
