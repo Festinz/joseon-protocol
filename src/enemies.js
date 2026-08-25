@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { ENEMIES, DANGER, SCORE, PLAYER } from './config.js';
 import { state, now } from './state.js';
-import { buildSoldier } from './assets.js';
+import { buildSoldier, retrofitSoldierAnim } from './assets.js';
 import { registerHittable, unregisterActor, spawnDangerShot, creditKill, creditHit, creditShootdown, damagePlayer } from './combat.js';
 import { SPAWN_PRESETS } from './leveldata.js';
 import { rig } from './rail.js';
@@ -21,6 +21,15 @@ export function initEnemies(sc) {
   // 은신 시스템: 사격 소리는 존 전체 경보
   state.on('shotFired', () => { for (const a of actors) a.aware = true; });
   state.on('assassinatePressed', tryAssassinate);
+  // 애니 GLB 로드 완료 → 살아있는 액터 + 풀 전체 일괄 소급
+  state.on('soldierGLBReady', () => {
+    const all = [...actors, ...Object.values(pool).flat()];
+    for (const a of all) {
+      const torso = a.group.getObjectByName('torsoPivot');
+      if (torso) retrofitSoldierAnim(torso, a.type);
+      a.mixer = null; a.clips = null; a.curAction = null; // 다음 playA 에서 재생성
+    }
+  });
 }
 
 // ── 암살 (C 은신 + 미인지 적 배후 1.8m + E) ──
@@ -88,6 +97,7 @@ export function getActors() { return actors; }
 function ensureMixer(a) {
   if (a.mixer) return true;
   const torso = a.group.getObjectByName('torsoPivot');
+  if (torso && !torso.userData.glbAnim) retrofitSoldierAnim(torso, a.type); // 로드 레이스 보정
   const ga = torso?.userData?.glbAnim;
   if (!ga) return false;
   a.mixer = new THREE.AnimationMixer(ga.root);
@@ -117,6 +127,7 @@ function doSpawn({ entry, node }) {
   const a = acquire(entry.type);
   const cfg = ENEMIES[entry.type];
   a.alive = true; a.hp = cfg.hp; a.st = 'SPAWN'; a.stT = now(); a.entry = entry;
+  { const torso = a.group.getObjectByName('torsoPivot'); if (torso) retrofitSoldierAnim(torso, a.type); } // 애니 GLB 소급 장착
   const basis = nodeBasis(node);
   const off = new THREE.Vector3(...(SPAWN_PRESETS[entry.dir] || SPAWN_PRESETS.FC));
   off.applyQuaternion(basis.quat);

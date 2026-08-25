@@ -34,7 +34,7 @@ export function initBossFight(node, isContinue = false) {
     sc.add(group);
     const inner = group.children[0];
     // Meshy GLB 몸체 스왑 (게임플레이 파츠는 절차 유지 — 실패해도 무결)
-    new GLTFLoader().load('assets/models/gobungi_body.glb', (g) => {
+    new GLTFLoader().load('assets/models/gobungi_body.glb?v=2', (g) => {
       const body = inner.getObjectByName('body'); if (body) body.visible = false;
       g.scene.scale.setScalar(0.78);
       g.scene.traverse(o => { if (o.isMesh && o.material) { o.material.roughness = Math.min(0.9, o.material.roughness ?? 0.8); } });

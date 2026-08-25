@@ -63,12 +63,23 @@ let soldierGLBScene = null;
 let soldierGLBAnims = null;   // 애니메이티드 GLB (Meshy 리깅) 클립들
 const soldierSwapQueue = [];
 const VARIANT_TINT = { grunt: null, marksman: 0xffb0a0, thrower: 0xd8b890, shield: 0xb8c0cc };
-new GLTFLoader().load('assets/models/soldier.glb', (g) => {
+import { state as _state } from './state.js';
+new GLTFLoader().load('assets/models/soldier.glb?v=3', (g) => {
   soldierGLBScene = g.scene;
   soldierGLBAnims = (g.animations && g.animations.length) ? g.animations : null;
   for (const job of soldierSwapQueue) attachSoldierGLB(...job);
   soldierSwapQueue.length = 0;
+  _state.emit('soldierGLBReady');   // 기존 액터·풀 일괄 소급 (enemies 구독)
 }, undefined, () => {});
+
+// 레이스 보정: 로드 전 생성된 액터에 애니 GLB 소급 장착 (enemies.ensureMixer 에서 호출)
+export function retrofitSoldierAnim(torso, variant) {
+  if (!soldierGLBAnims || torso.userData.glbAnim) return;
+  const old = torso.getObjectByName('glbBody');
+  if (old) torso.remove(old);
+  const body = torso.getObjectByName('body');
+  attachSoldierGLB(torso, body || { visible: true }, variant);
+}
 
 function attachSoldierGLB(torso, body, variant) {
   if (!soldierGLBScene) { soldierSwapQueue.push([torso, body, variant]); return; }
