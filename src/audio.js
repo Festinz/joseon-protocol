@@ -30,6 +30,13 @@ export function initAudio() {
   state.on('bannerShow', () => sfxBlip());
   state.on('turretDestroyed', () => sfxBoom(0.5));
   state.on('bossDefeated', () => { sfxBoom(); setTimeout(sfxBoom, 400); setTimeout(sfxBoom, 900); });
+  state.on('grenadeExploded', () => sfxBoom(0.85));
+  state.on('grenadeThrown', () => sfxTick());
+  state.on('assassinateDone', () => sfxKill());
+  state.on('mulgitSlam', () => sfxBoom(0.7));
+  state.on('mulgitWave', () => sfxBoom(0.9));
+  state.on('mulgitCharge', () => sfxWhoosh());
+  state.on('mulgitDefeated', () => { sfxBoom(); setTimeout(sfxBoom, 500); });
 }
 
 export function unlockAudio() { // 첫 클릭에서 호출 (자동재생 정책)

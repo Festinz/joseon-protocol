@@ -2,15 +2,15 @@
 
 import { state } from './state.js';
 
-export const keys = { w: false, a: false, s: false, d: false, shift: false, ctrl: false, q: false, e: false };
-let lmbHeld = false;
+export const keys = { w: false, a: false, s: false, d: false, shift: false, ctrl: false, z: false, x: false };
+let lmbHeld = false, rmbHeld = false;
 let mdx = 0, mdy = 0;
 const canvas = () => document.getElementById('c');
 const xhair = () => document.getElementById('xhair');
 
 export function isFireHeld() { return lmbHeld; }
 export function isPopHeld() { return false; }               // 구 엄폐 시스템 호환 (미사용)
-export function isLeanHeld() { return (keys.e ? 1 : 0) - (keys.q ? 1 : 0); }
+export function isLeanHeld() { return (keys.x ? 1 : 0) - (keys.z ? 1 : 0); } // Z 좌 / X 우 리닝
 export function getNDC() { return { ndcX: 0, ndcY: 0 }; }   // 포인터락 = 항상 화면 중앙 조준
 export function consumeMouseDelta() { const r = { x: mdx, y: mdy }; mdx = mdy = 0; return r; }
 export function isLocked() { return document.pointerLockElement === canvas(); }
@@ -29,8 +29,12 @@ export function initInput() {
     if (!isLocked()) { canvas().requestPointerLock(); return; }
     if (state.paused) return;
     if (e.button === 0) { lmbHeld = true; state.emit('firePressed'); }
+    if (e.button === 2) { rmbHeld = true; state.ads = true; }     // 우클릭 = 견착(ADS)
   });
-  document.addEventListener('mouseup', (e) => { if (e.button === 0) lmbHeld = false; });
+  document.addEventListener('mouseup', (e) => {
+    if (e.button === 0) lmbHeld = false;
+    if (e.button === 2) { rmbHeld = false; state.ads = false; }
+  });
 
   document.addEventListener('pointerlockchange', () => {
     if (!isLocked()) {
@@ -44,20 +48,34 @@ export function initInput() {
     if (e.repeat) return;
     if (e.code === 'KeyM') { state.emit('toggleMute'); return; }
     if (e.code === 'Escape') return; // 포인터락 해제가 곧 일시정지
-    if (state.phase !== 'play' || state.paused) return;
+    if (state.phase !== 'play') return;
+    if (state.paused) {
+      // 무기 휠 중에는 숫자 선택만 허용
+      if (state.wheelOpen) {
+        if (e.code === 'Digit1') state.emit('switchWeapon', 'rifle');
+        if (e.code === 'Digit2') state.emit('switchWeapon', 'carbine');
+        if (e.code === 'Digit3') state.emit('switchWeapon', 'ritual');
+        if (e.code === 'Space') return;
+      }
+      return;
+    }
     switch (e.code) {
       case 'KeyW': keys.w = true; break;
       case 'KeyA': keys.a = true; break;
       case 'KeyS': keys.s = true; break;
       case 'KeyD': keys.d = true; break;
       case 'ShiftLeft': case 'ShiftRight': keys.shift = true; break;
-      case 'ControlLeft': case 'KeyX': keys.ctrl = true; e.preventDefault(); break;
-      case 'KeyQ': keys.q = true; break;
-      case 'KeyE': keys.e = true; break;
+      case 'ControlLeft': keys.ctrl = true; e.preventDefault(); break;
+      case 'KeyC': keys.ctrl = !keys.ctrl; break;               // C = 웅크리기 토글 (은신)
+      case 'KeyZ': keys.z = true; break;                        // 좌 리닝
+      case 'KeyX': keys.x = true; break;                        // 우 리닝
       case 'KeyR': state.emit('reloadPressed'); break;
-      case 'KeyF': state.emit('useItem', 'tonic'); break;
-      case 'KeyC': state.emit('useItem', 'smoke'); break;
-      case 'KeyV': state.emit('ultPressed'); break;
+      case 'KeyT': state.emit('useItem', 'tonic'); break;       // T = 탕약
+      case 'KeyG': state.emit('useItem', 'smoke'); break;       // G = 연막
+      case 'KeyF': state.emit('grenadePressed'); break;         // F = 수류탄
+      case 'KeyE': state.emit('assassinatePressed'); break;     // E = 암살/상호작용
+      case 'KeyQ': state.emit('ultPressed'); break;             // Q = 궁극기
+      case 'Space': state.emit('wheelHold', true); e.preventDefault(); break;
       case 'Digit1': state.emit('switchWeapon', 'rifle'); break;
       case 'Digit2': state.emit('switchWeapon', 'carbine'); break;
       case 'Digit3': state.emit('switchWeapon', 'ritual'); break;
@@ -70,9 +88,10 @@ export function initInput() {
       case 'KeyS': keys.s = false; break;
       case 'KeyD': keys.d = false; break;
       case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break;
-      case 'ControlLeft': case 'KeyX': keys.ctrl = false; break;
-      case 'KeyQ': keys.q = false; break;
-      case 'KeyE': keys.e = false; break;
+      case 'ControlLeft': keys.ctrl = false; break;
+      case 'KeyZ': keys.z = false; break;
+      case 'KeyX': keys.x = false; break;
+      case 'Space': state.emit('wheelHold', false); break;
     }
   });
 

@@ -11,6 +11,9 @@ import { initWeapons3D, updateWeapons } from './weapons.js';
 import { updateCombat, registerBlocker, clearDangerShots } from './combat.js';
 import { initEnemies, updateEnemies, clearAll, getActors, spawnMortars } from './enemies.js';
 import { initBossScene, resetBoss } from './boss.js';
+import { initMulgitScene, resetMulgit } from './mulgit.js';
+import { initThrowables, updateThrowables } from './throwables.js';
+import { initVmSprite, updateVmSprite } from './vmsprite.js';
 import { initFlow, updateFlow, beginRun } from './flow.js';
 import { initVfx, updateVfx } from './vfx.js';
 import { initAudio } from './audio.js';
@@ -66,8 +69,11 @@ scene.add(initRail(camera));
 for (const g of GATES) addGateSolid(g.id, g);
 initInput();
 initWeapons3D();
+initVmSprite();
 initEnemies(scene);
 initBossScene(scene);
+initMulgitScene(scene);
+initThrowables(scene);
 initVfx(scene);
 initAudio();
 initFlow();
@@ -76,7 +82,7 @@ initDebugOverlay(renderer);
 state.on('bossMortar', (n) => spawnMortars(n));
 state.on('debugKillWave', () => { for (const a of [...getActors()]) if (a.alive) a.onHit(a.headOnly ? 'hitHead' : 'hitBody', 9999, {}); });
 state.on('debugJump', (idx) => {
-  clearAll(); clearDangerShots();
+  clearAll(); clearDangerShots(); resetBoss(); resetMulgit();
   const z = ZONES[Math.min(idx, ZONES.length - 1)];
   teleport(z.anchor[0], z.enterZ + 2);
 });
@@ -101,8 +107,10 @@ function loop(t) {
     updateFlow(dt);
     updateCombat(dt);
     updateWeapons(dt);
+    updateThrowables(dt);
   }
   updateVfx(dt);
+  updateVmSprite(dt);
   updateUI();
   updateDebug(dt);
 

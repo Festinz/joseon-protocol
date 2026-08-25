@@ -72,10 +72,16 @@ export function updateRail(dt) {
   const p = state.player;
   if (p.state === 'DEAD') return;
 
+  // ── ADS (우클릭 견착): FOV 줌 + 감도 저하 ──
+  state._adsT = (state._adsT || 0) + ((state.ads ? 1 : 0) - (state._adsT || 0)) * Math.min(1, dts * 9);
+  const targetFov = PLAYER.fov - state._adsT * 26;
+  if (Math.abs(rig.camera.fov - targetFov) > 0.1) { rig.camera.fov = targetFov; rig.camera.updateProjectionMatrix(); }
+  const sens = 1 - state._adsT * 0.45;
+
   // ── 마우스 룩 ──
   const md = consumeMouseDelta();
-  yaw -= md.x * 0.0023;
-  pitch -= md.y * 0.0021;
+  yaw -= md.x * 0.0023 * sens;
+  pitch -= md.y * 0.0021 * sens;
   pitch = Math.max(-1.35, Math.min(1.35, pitch));
   rig.dolly.rotation.y = yaw;
   rig.camera.rotation.x = pitch;

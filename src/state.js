@@ -27,8 +27,9 @@ export const state = {
   currentWeapon: 'rifle',
   unlockedWeapons: ['rifle'],
 
-  items: { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start },
+  items: { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start, grenade: ITEMS.grenade.start },
   smokeUntil: 0,
+  ads: false, wheelOpen: false,
 
   ult: 0,
   ultCasting: false,
@@ -74,7 +75,8 @@ export function resetRun() {
   state.player.invulnUntil = 0;
   state.currentWeapon = 'rifle';
   state.unlockedWeapons = ['rifle'];
-  state.items = { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start };
+  state.items = { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start, grenade: ITEMS.grenade.start };
+  state.ads = false; state.wheelOpen = false;
   state.smokeUntil = 0;
   state.ult = 0; state.ultCasting = false;
   state.score = 0; state.combo = 0; state.comboMult = 1;

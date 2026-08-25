@@ -16,7 +16,35 @@ const bombs = [];         // 격추 가능 진천뢰
 let spawnQueue = [];      // { at(ms), entry, node }
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
 
-export function initEnemies(sc) { scene = sc; }
+export function initEnemies(sc) {
+  scene = sc;
+  // 은신 시스템: 사격 소리는 존 전체 경보
+  state.on('shotFired', () => { for (const a of actors) a.aware = true; });
+  state.on('assassinatePressed', tryAssassinate);
+}
+
+// ── 암살 (C 은신 + 미인지 적 배후 1.8m + E) ──
+let assassinTarget = null;
+function tryAssassinate() {
+  if (!assassinTarget || !assassinTarget.alive) return;
+  const a = assassinTarget;
+  a.onHit(a.headOnly ? 'hitHead' : 'hitBody', 9999, { weak: true, silent: true });
+  state.emit('assassinateDone', a);
+  state.emit('recapLine', '암살 — 소리 없이 처단했다 (+×2)');
+  state.score += 200; state.emit('scoreChanged');
+}
+function updateAssassinTarget() {
+  let best = null, bestD = 1.9;
+  const crouched = state.playerCrouching;
+  if (crouched) {
+    for (const a of actors) {
+      if (!a.alive || a.aware) continue;
+      const d = a.group.position.distanceTo(rig.dolly.position);
+      if (d < bestD) { bestD = d; best = a; }
+    }
+  }
+  if (best !== assassinTarget) { assassinTarget = best; state.emit('assassinPrompt', !!best); }
+}
 
 function acquire(type) {
   let a = pool[type].pop();
@@ -66,7 +94,10 @@ function doSpawn({ entry, node }) {
   a.group.position.copy(basis.pos).add(off);
   a.homeY = a.group.position.y;
   a.group.position.y -= 1.6; // 지면 상승 연출
-  a.group.lookAt(rig.dolly.position.x, a.homeY, rig.dolly.position.z);
+  // 은신: 스폰 시 미인지 — 대체로 등을 보이거나 옆을 본다 (암살 창구)
+  a.aware = false;
+  a.spawnYaw = Math.PI + (Math.random() - 0.5) * 1.6; // 북쪽(등짐) 중심 ±45°
+  a.group.rotation.y = a.spawnYaw;
   a.aura.visible = false;
   // 명중탄/투척 스케줄
   if (entry.type === 'marksman') {
@@ -90,6 +121,7 @@ function onActorHit(a, part, dmg, info) {
   if (!a.alive) return;
   if (a.headOnly && part !== 'hitHead') return; // 팽배수: 머리만
   a.hp -= dmg;
+  if (!info?.silent) a.aware = true;            // 암살은 무음 — 그 외 피격은 인지
   creditHit();
   a.hitFlash = now();
   if (a.hp <= 0) {
@@ -134,6 +166,7 @@ function killBomb(b, exploded) {
 // ── 프레임 업데이트 ───────────────────────────────────────────────
 export function updateEnemies(dt) {
   const t = now();
+  updateAssassinTarget();
   // 스폰 큐
   for (let i = spawnQueue.length - 1; i >= 0; i--) {
     if (t >= spawnQueue[i].at) { doSpawn(spawnQueue[i]); spawnQueue.splice(i, 1); }
@@ -152,6 +185,15 @@ export function updateEnemies(dt) {
       case 'IDLE': {
         // sine 바브 + 살짝 좌우 이동, 방패병은 전진
         a.group.position.y = a.homeY + Math.sin(t * 0.003 + a.seed) * 0.04;
+        // ── 인지 판정: 근접(서면 7m/앉으면 2.8m) 또는 정면 시야(전방 60° & 14m) ──
+        if (!a.aware) {
+          const d = a.group.position.distanceTo(rig.dolly.position);
+          const near = state.playerCrouching ? 2.8 : 7;
+          _v.subVectors(rig.dolly.position, a.group.position).setY(0).normalize();
+          const facing = Math.cos(a.group.rotation.y) * -_v.z + Math.sin(a.group.rotation.y) * -_v.x; // 대략적 전방 내적
+          if (d < near || (facing > 0.5 && d < 14 && !state.playerCrouching)) { a.aware = true; state.emit('enemyAlerted', a); }
+          else break; // 미인지: 사격/추적 없음
+        }
         if (a.type === 'shield') {
           a.group.position.addScaledVector(_v.subVectors(rig.dolly.position, a.group.position).setY(0).normalize(), dt * 0.0006);
           if (a.group.position.distanceTo(rig.dolly.position) < 2.2) { damagePlayer(PLAYER.dangerHit, '팽배수 근접 공격'); a.st = 'RECOIL'; a.stT = t; }

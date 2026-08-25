@@ -10,6 +10,7 @@ import { spawnWave, aliveCount, clearAll, getActors, resetReliefFlag } from './e
 import { clearDangerShots, damagePlayer } from './combat.js';
 import { refillAmmo } from './weapons.js';
 import { initBossFight, updateBoss, bossActive, bossTakeUltDamage } from './boss.js';
+import { spawnMulgit, updateMulgit, mulgitActive, resetMulgit } from './mulgit.js';
 
 const zoneState = ZONES.map(() => ({ started: false, cleared: false, waveIdx: 0, waveActive: false, waveStartAt: 0 }));
 let deadAt = 0;
@@ -20,6 +21,17 @@ export function initFlow() {
   state.on('playerDead', () => { deadAt = now(); });
   state.on('forceCoverRequest', () => {});
   state.on('runComplete', () => state.emit('showEnding'));
+  // 무기 휠 (Space 홀드 = 일시정지 + 휠 UI)
+  state.on('wheelHold', (held) => {
+    if (state.phase !== 'play' || state.player.state === 'DEAD') return;
+    state.wheelOpen = held; state.paused = held;
+    state.emit('wheelShow', held);
+  });
+  // 멀기트 격파 → Z4 클리어 처리 (보스룸 문 개방)
+  state.on('mulgitDefeated', () => {
+    const i = ZONES.findIndex(z => z.id === 'Z4');
+    if (i >= 0 && !zoneState[i].cleared) zoneCleared(i);
+  });
 }
 
 export function beginRun() {
@@ -68,6 +80,7 @@ function zoneCleared(i) {
   if (r) {
     if (r.ammoRefill) refillAmmo();
     if (r.item) { state.items[r.item] = Math.min(ITEMS[r.item].max, state.items[r.item] + (r.count || 1)); state.emit('itemsChanged'); }
+    if (r.grenade) { state.items.grenade = Math.min(ITEMS.grenade.max, state.items.grenade + r.grenade); state.emit('itemsChanged'); }
     if (r.unlockWeapon && !state.unlockedWeapons.includes(r.unlockWeapon)) {
       state.unlockedWeapons.push(r.unlockWeapon); state.emit('weaponUnlocked', r.unlockWeapon);
     }
@@ -92,7 +105,7 @@ export function updateFlow(dt) {
       state.score = state.nodeStartScore + Math.round(Math.max(0, gained) * SCORE.continuePenalty);
       state.player.hp = PLAYER.hp; state.player.state = 'COVERED';
       state.player.invulnUntil = now() + 1500;
-      clearAll(); clearDangerShots();
+      clearAll(); clearDangerShots(); resetMulgit(); zs.mulgit = false;
       teleport(zone.anchor[0], zone.enterZ + 2.5);
       state.emit('scoreChanged'); state.emit('playerRevived');
       state.emit('bannerShow', '이어하기 — 구간 점수 절반');
@@ -108,12 +121,15 @@ export function updateFlow(dt) {
   if (!zs.started) startZone(i);
   if (zone.boss) { updateBoss(dt); return; }
 
-  // 웨이브 전멸 → 다음 웨이브 or 존 클리어
+  if (mulgitActive()) updateMulgit(dt);
+
+  // 웨이브 전멸 → 다음 웨이브 or 존 클리어 (Z4 는 웨이브 후 멀기트 중간보스)
   if (zs.started && !zs.cleared && zs.waveActive && now() - zs.waveStartAt > 1500 && aliveCount() === 0) {
     zs.waveActive = false;
     const next = zs.waveIdx + 1;
     if (next < zone.waves.length) setTimeout(() => startWave(i, next), 900);
-    else zoneCleared(i);
+    else if (zone.id === 'Z4' && !zs.mulgit) { zs.mulgit = true; setTimeout(() => spawnMulgit([zone.anchor[0], 0, zone.anchor[2] - 6]), 1200); }
+    else if (zone.id !== 'Z4') zoneCleared(i);
   }
 }
 

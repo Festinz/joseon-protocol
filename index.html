@@ -86,6 +86,27 @@
   @keyframes blink{50%{opacity:.25}}
   @keyframes pulse{50%{filter:brightness(1.5)}}
 
+  /* ── 뷰모델 스프라이트 ── */
+  #vmwrap{right:0; bottom:0; width:52vw; max-width:880px; z-index:8; overflow:hidden}
+  #vmimg{width:100%; display:block; image-rendering:pixelated; transform-origin:70% 100%;
+         filter:brightness(.82) saturate(.92) drop-shadow(0 0 18px rgba(0,0,0,.6)); transition:none}
+  body.hand-L #vmwrap{right:auto; left:0}
+  body.hand-L #vmimg{transform-origin:30% 100%; scale:-1 1}
+
+  /* ── 무기 휠 ── */
+  #wheel{inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:70; background:rgba(6,8,20,.55)}
+  #wheel img{width:min(46vh,420px); image-rendering:pixelated; filter:drop-shadow(0 0 30px #000)}
+  .wheelhint{margin-top:14px; font-size:15px; font-weight:700; letter-spacing:.1em; color:var(--ink); text-shadow:0 1px 6px #000}
+
+  /* ── 궁극기 컷씬 ── */
+  #cutscene{inset:0; z-index:65; display:flex; align-items:center; justify-content:center; background:#000}
+  #cutscene img{width:100%; height:100%; object-fit:cover; image-rendering:pixelated; animation:cutzoom 2.6s ease-out forwards}
+  @keyframes cutzoom{from{transform:scale(1); filter:brightness(.7)} 30%{filter:brightness(1.15)} to{transform:scale(1.08); filter:brightness(1)}}
+
+  /* ── 암살 프롬프트 ── */
+  #assassin{left:50%; top:58%; transform:translateX(-50%); z-index:30; font-size:20px; font-weight:800; letter-spacing:.18em;
+            color:#ffd24a; text-shadow:0 0 14px rgba(255,180,40,.8), 0 2px 6px #000; animation:pulse 1s ease-in-out infinite}
+
   /* ── overlays ──────────────────────────── */
   .overlay{position:fixed; inset:0; z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; background:radial-gradient(ellipse at 50% 35%, #131735 0%, #0a0c18 75%); cursor:default; text-align:center; padding:20px}
   .overlay h1{font-size:clamp(26px,4.6vw,44px); letter-spacing:.06em; line-height:1.35; margin-bottom:6px}
@@ -128,6 +149,23 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+
+<!-- 1인칭 뷰모델 스프라이트 (Gemini 아트 — 픽셀 정합용 저해상판을 CSS 로 업스케일) -->
+<div id="vmwrap" class="hud">
+  <img id="vmimg" src="assets/vm/rifle_s.png" alt="">
+</div>
+
+<!-- 무기 선택 휠 (Space 홀드) -->
+<div id="wheel" class="hud hidden">
+  <img src="assets/ui/wheel_s.png" alt="">
+  <div class="wheelhint">1 영천 소총 · 2 집경 카빈 · 3 천마도 <span id="wh3lock">🔒</span></div>
+</div>
+
+<!-- 궁극기 컷씬 (비거 융단폭격) -->
+<div id="cutscene" class="hud hidden"><img src="assets/cutscenes/bigeo.jpg" alt=""></div>
+
+<!-- 암살 프롬프트 -->
+<div id="assassin" class="hud hidden">E — 암살</div>
 
 <!-- HUD -->
 <div id="vignette" class="hud"></div>
@@ -184,8 +222,8 @@
   <p>한성에 증기 요괴가 창궐하였다.<br>어명을 받든 암행어사가 되어 광화문을 지나 경복궁을 수복하라.</p>
   <button class="btn" id="startbtn">출 정</button>
   <div class="keys">
-    <b>WASD</b> 이동 &nbsp; <b>마우스</b> 조준 (클릭하면 시점 고정) &nbsp; <b>좌클릭</b> 사격 &nbsp; <b>Shift</b> 질주 &nbsp; <b>Ctrl</b> 앉기<br>
-    <b>Q/E</b> 리닝 &nbsp; <b>R</b> 재장전 &nbsp; <b>F</b> 탕약 &nbsp; <b>C</b> 연막 &nbsp; <b>V</b> 궁극기 &nbsp; <b>1·2·3</b> 무기 &nbsp; <b>Esc</b> 일시정지 &nbsp; <b>M</b> 음소거
+    <b>WASD</b> 이동 &nbsp; <b>좌클릭</b> 사격 &nbsp; <b>우클릭</b> 견착(ADS) &nbsp; <b>Shift</b> 질주 &nbsp; <b>C</b> 웅크리기(은신) &nbsp; <b>E</b> 암살<br>
+    <b>Z/X</b> 리닝 &nbsp; <b>R</b> 재장전 &nbsp; <b>F</b> 수류탄 &nbsp; <b>Q</b> 궁극기 &nbsp; <b>Space</b> 무기 휠 &nbsp; <b>T</b> 탕약 &nbsp; <b>G</b> 연막 &nbsp; <b>M</b> 음소거
   </div>
   <p style="margin-top:18px; font-size:12px; color:#8f94b5">PC · 마우스 전용 · 사운드 권장</p>
   <div id="loaderr"></div>

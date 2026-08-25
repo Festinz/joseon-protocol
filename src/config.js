@@ -67,6 +67,7 @@ export const ULT = {
 export const ITEMS = {
   tonic: { heal: 40, max: 2, start: 2, useMs: 800 },
   smoke: { durMs: 4000, max: 2, start: 0 },
+  grenade: { max: 3, start: 2 },
 };
 
 // ── 점수 ──

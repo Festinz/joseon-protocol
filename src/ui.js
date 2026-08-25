@@ -100,6 +100,14 @@ export function initUI({ onRunStart, onRestart }) {
   state.on('shotBlockedByShield', () => showRecap('방패에 막혔다 — 머리를 노려라'));
   state.on('smokeDeployed', () => showBanner('연막 전개'));
   state.on('recapLine', showRecap);
+  state.on('wheelShow', (held) => $('wheel').classList.toggle('hidden', !held));
+  state.on('assassinPrompt', (on) => $('assassin').classList.toggle('hidden', !on));
+  state.on('ultCastStart', () => { // 비거 융단폭격 컷씬
+    const c = $('cutscene'); c.classList.remove('hidden');
+    const img = c.querySelector('img'); img.style.animation = 'none'; void img.offsetWidth; img.style.animation = '';
+    setTimeout(() => c.classList.add('hidden'), 2600);
+  });
+  state.on('mulgitHp', (r) => { $('objtext').textContent = `멀기트 — ${Math.max(0, Math.round(r * 100))}%`; });
   state.on('gateOpened', () => {});
   state.on('showEnding', showEnding);
 
@@ -127,10 +135,10 @@ function renderSlots() {
   $('ws3').style.opacity = state.unlockedWeapons.includes('ritual') ? 1 : 0.3;
 }
 function renderItems() {
-  $('it-tonic').innerHTML = `탕약 <b>×${state.items.tonic}</b> <span style="opacity:.6">F</span>`;
-  $('it-smoke').innerHTML = `연막 <b>×${state.items.smoke}</b> <span style="opacity:.6">C</span>`;
+  $('it-tonic').innerHTML = `탕약 <b>×${state.items.tonic}</b> <span style="opacity:.6">T</span>`;
+  $('it-smoke').innerHTML = `연막 <b>×${state.items.smoke}</b> <span style="opacity:.6">G</span> &nbsp;·&nbsp; 수류탄 <b>×${state.items.grenade}</b> <span style="opacity:.6">F</span>`;
   $('it-tonic').classList.toggle('none', state.items.tonic === 0);
-  $('it-smoke').classList.toggle('none', state.items.smoke === 0);
+  $('it-smoke').classList.toggle('none', state.items.smoke === 0 && state.items.grenade === 0);
 }
 function renderUlt() {
   const open = state.node?.fieldType === 'open';

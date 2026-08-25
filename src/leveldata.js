@@ -79,7 +79,7 @@ export const ZONES = [
       [ { type: 'grunt', dir: 'FL', delay: 0 }, { type: 'grunt', dir: 'FR', delay: 0.7 }, { type: 'grunt', dir: 'FC2', delay: 1.4 },
         { type: 'marksman', dir: 'FL2', delay: 2.5 }, { type: 'marksman', dir: 'FR2', delay: 4.5 }, { type: 'grunt', dir: 'FC', delay: 5 } ],
     ],
-    ultShowcase: 2, clearReward: { ammoRefill: true },
+    ultShowcase: 2, clearReward: { ammoRefill: true, grenade: 1 },
   },
   {
     id: 'Z2', name: '관문 통로', objective: '통로를 소탕하며 전진하라',
@@ -88,7 +88,7 @@ export const ZONES = [
       [ { type: 'grunt', dir: 'FC', delay: 0.4 }, { type: 'grunt', dir: 'FL', delay: 1.4 }, { type: 'marksman', dir: 'FC2', delay: 2.6, aimIntervalMs: 4000 } ],
       [ { type: 'grunt', dir: 'FC', delay: 0 }, { type: 'marksman', dir: 'FL2', delay: 1.5, aimIntervalMs: 3500 }, { type: 'thrower', dir: 'FC2', delay: 3 } ],
     ],
-    clearReward: { item: 'smoke', count: 1 },
+    clearReward: { item: 'smoke', count: 1, grenade: 1 },
   },
   {
     id: 'Z3', name: '경복궁 회랑', objective: '회랑을 돌파해 근정전으로 향하라',

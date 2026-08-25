@@ -29,6 +29,7 @@ let lastNdcX = 0, lastNdcY = 0;
 
 export function initWeapons3D() {
   vmRoot.name = 'viewmodelRoot';
+  vmRoot.visible = false; // 3D 뷰모델 → 스프라이트(vmsprite.js) 로 대체
   rig.shoulder.add(vmRoot);
   for (const key of ['rifle', 'carbine', 'ritual']) {
     const vm = instantiate('vm_' + key);
@@ -153,8 +154,15 @@ export function updateWeapons(dt) {
   }
 }
 
+const _mw = new THREE.Vector3(), _fw = new THREE.Vector3(), _rt = new THREE.Vector3();
 export function muzzleWorld(out) {
-  const cur = vms[state.currentWeapon];
-  const m = cur && cur.getObjectByName('muzzle');
-  return m ? m.getWorldPosition(out) : rig.shoulder.getWorldPosition(out);
+  // 스프라이트 뷰모델 기준: 카메라 전방 0.55m + 견착 어깨쪽 0.28m + 아래 0.18m
+  rig.camera.getWorldPosition(out || _mw);
+  const o = out || _mw;
+  rig.camera.getWorldDirection(_fw);
+  _rt.crossVectors(_fw, rig.camera.up).normalize();
+  const sign = state.hand === 'L' ? -1 : 1;
+  o.addScaledVector(_fw, 0.55).addScaledVector(_rt, 0.28 * sign);
+  o.y -= 0.18;
+  return o;
 }
