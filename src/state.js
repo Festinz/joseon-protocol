@@ -25,7 +25,10 @@ export const state = {
 
   weapons: {},                  // key -> { mag, reserve, reloading, lastFire }
   currentWeapon: 'rifle',
-  unlockedWeapons: ['rifle', 'hwando'],
+  // 4종 전부 시작 지급 — 역할 분담(원거리/근접폭발/은신/근접)이 설계의 핵심이라 잠글 이유가 없다.
+  // (구 설계: rifle+hwando 시작, ritual 은 Z3 보상. carbine 은 무기 개편 때 해금 지점이 유실돼
+  //  영원히 잠겨 있었다 — 해금제 자체를 폐지한다)
+  unlockedWeapons: ['rifle', 'carbine', 'ritual', 'hwando'],
 
   items: { tonic: ITEMS.tonic.start, grenade: ITEMS.grenade.start },
   smokeUntil: 0,                  // 연막은 제거됨 — 항상 0 (명중탄 차단 검사가 아직 읽는다)
@@ -77,7 +80,7 @@ export function resetRun() {
   state.player.peekT = 0;
   state.player.invulnUntil = 0;
   state.currentWeapon = 'rifle';
-  state.unlockedWeapons = ['rifle', 'hwando'];
+  state.unlockedWeapons = ['rifle', 'carbine', 'ritual', 'hwando'];
   state.items = { tonic: ITEMS.tonic.start, grenade: ITEMS.grenade.start };
   state.evading = false; state.evadeUntil = 0; state.evadeReadyAt = 0;
   state.ads = false; state.bowDraw = false; state.wheelOpen = false;

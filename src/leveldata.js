@@ -98,7 +98,7 @@ export const ZONES = [
       [ { type: 'shield', dir: 'FC2', delay: 0 }, { type: 'grunt', dir: 'FR', delay: 1 }, { type: 'marksman', dir: 'FR2', delay: 2.2, aimIntervalMs: 3200 } ],
       [ { type: 'marksman', dir: 'FC', delay: 0, aimIntervalMs: 3200 }, { type: 'thrower', dir: 'FR2', delay: 1.6 }, { type: 'grunt', dir: 'FL', delay: 2.6 }, { type: 'grunt', dir: 'FC2', delay: 3.4 } ],
     ],
-    clearReward: { item: 'tonic', count: 1, ammoRefill: true, unlockWeapon: 'ritual',
+    clearReward: { item: 'tonic', count: 1, ammoRefill: true, 
                    vignette: '제단의 힘이 깃든 천마도를 얻었다 — 의식탄은 결정적 순간에만' },
   },
   {
