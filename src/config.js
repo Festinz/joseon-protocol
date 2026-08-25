@@ -130,7 +130,7 @@ export const EVADE = {
   distance: 3.6,       // 스텝 총 이동거리(m)
   durMs: 330,
   iframeMs: 330,       // = durMs (스텝 내내 피격 무효 — "확실한 피드백")
-  cooldownMs: 820,     // 스텝 종료 후 재사용 대기
+  cooldownMs: 620,     // 스텝 종료 후 재사용 대기 (총 주기 950ms < 해태 교대 볼리 1500ms)
   rollDeg: 12,         // 좌우 스텝 시 카메라 롤
   dip: 0.11,           // 몸을 낮추는 상하 딥(m)
   fovPunch: 7,
