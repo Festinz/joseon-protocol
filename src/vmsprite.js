@@ -13,7 +13,7 @@ const SPRITES = {
   mapae: 'assets/vm/mapae.png',
 };
 
-let img, wrap;
+let img, wrap, scopeEl, scopeSvg, xhairEl;
 let bobPhase = 0;
 let kickY = 0, kickR = 0;
 let override = null;         // { sprite, until, anim } — 단도/수류탄/마패 일시 연출
@@ -23,6 +23,9 @@ let swayX = 0, swayY = 0, swayVX = 0, swayVY = 0; // 룩-스웨이: 시선 반�
 export function initVmSprite() {
   wrap = document.getElementById('vmwrap');
   img = document.getElementById('vmimg');
+  scopeEl = document.getElementById('scope');
+  scopeSvg = scopeEl && scopeEl.firstElementChild;
+  xhairEl = document.getElementById('xhair');
 
   state.on('handChosen', (h) => document.body.classList.toggle('hand-L', h === 'L'));
   state.on('weaponChanged', refresh);
@@ -87,10 +90,10 @@ export function updateVmSprite(dt) {
     }
   }
 
-  // ADS: 중앙으로 + 확대 (견착 줌)
+  // ADS: 총을 내리고 조준경(스코프 오버레이)으로 전환 — 2D 스프라이트의 견착 문법
   const sign = state.hand === 'L' ? 1 : -1;
-  const adsX = sign * adsT * (innerWidth * 0.13);
-  const adsY = adsT * 26;
+  const adsX = sign * adsT * (innerWidth * 0.02);
+  const adsY = adsT * (innerHeight * 0.62);
   const crouchY = state.playerCrouching ? 14 : 0;
   // 상하 조준 패럴랙스: 위를 보면 총이 내려가고 살짝 들리는 느낌 (2D 스프라이트의 3D 착시)
   const pitch = state._pitchVal || 0;
@@ -106,4 +109,11 @@ export function updateVmSprite(dt) {
     `perspective(1000px) translate(${bobX + ax + adsX + swayX * swayScale}px, ${bobY + ay + adsY + kickY + crouchY + pitchY + swayY * swayScale}px) ` +
     `rotateY(${aimYaw}deg) ` +
     `rotate(${(kickR + ar + aimTilt) * mir + pitchR + swayX * swayScale * 0.05}deg) scale(${scale + adsT * 0.16})`;
+
+  // 스코프 오버레이 페이드 + 레티클 미세 스웨이, 기본 크로스헤어는 스코프에 양보
+  if (scopeEl) {
+    scopeEl.style.opacity = adsT < 0.02 ? 0 : adsT;
+    if (scopeSvg) scopeSvg.style.transform = `translate(${swayX * 0.35}px, ${swayY * 0.35 + kickY * 0.4}px)`;
+  }
+  if (xhairEl) xhairEl.style.opacity = 1 - adsT * 0.9;
 }

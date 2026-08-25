@@ -129,6 +129,10 @@
   #wheel.flash .wheelhint{font-size:13px}
   .wheelhint{margin-top:14px; font-size:15px; font-weight:700; letter-spacing:.1em; color:var(--ink); text-shadow:0 1px 6px #000}
 
+  /* ── ADS 조준경 (스팀펑크 모노큘러) ── */
+  #scope{position:fixed; inset:0; z-index:9; pointer-events:none; opacity:0}
+  #scope svg{width:100%; height:100%; display:block}
+
   /* ── 궁극기 컷씬 ── */
   #cutscene{inset:0; z-index:65; display:flex; align-items:center; justify-content:center; background:#000}
   #cutscene img{width:100%; height:100%; object-fit:cover; animation:cutzoom 2.6s ease-out forwards}
@@ -193,6 +197,34 @@
     <div id="wheelhl"></div>
   </div>
   <div class="wheelhint" id="wheelname">Space 탭 — 무기 전환 · 1/2/3 직접 선택</div>
+</div>
+
+<!-- ADS 조준경 오버레이 (우클릭) -->
+<div id="scope">
+  <svg viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <radialGradient id="glassTint" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#9fd8d4" stop-opacity="0"/>
+        <stop offset="78%" stop-color="#9fd8d4" stop-opacity="0.05"/>
+        <stop offset="100%" stop-color="#0a1a1c" stop-opacity="0.35"/>
+      </radialGradient>
+    </defs>
+    <path d="M0 0H1000V1000H0Z M500 170 A330 330 0 1 0 500 830 A330 330 0 1 0 500 170Z"
+          fill="#05060a" fill-opacity="0.96" fill-rule="evenodd"/>
+    <circle cx="500" cy="500" r="330" fill="url(#glassTint)"/>
+    <circle cx="500" cy="500" r="330" fill="none" stroke="#8a6f3a" stroke-width="14"/>
+    <circle cx="500" cy="500" r="318" fill="none" stroke="#1c140a" stroke-width="6"/>
+    <circle cx="500" cy="500" r="344" fill="none" stroke="#3a2f1a" stroke-width="10"/>
+    <!-- 에칭 레티클: 십자 + 거리 눈금 -->
+    <g stroke="#e8dcc0" stroke-opacity="0.85" stroke-width="2.2">
+      <path d="M500 224 V430 M500 570 V776 M224 500 H430 M570 500 H776"/>
+      <path d="M470 560 H530 M478 610 H522 M486 655 H514" stroke-width="1.8" stroke-opacity="0.55"/>
+    </g>
+    <circle cx="500" cy="500" r="3.2" fill="#ffd24a"/>
+    <g stroke="#8a6f3a" stroke-width="3" stroke-opacity="0.8">
+      <path d="M500 176 V206 M500 794 V824 M176 500 H206 M794 500 H824"/>
+    </g>
+  </svg>
 </div>
 
 <!-- 궁극기 컷씬 (비거 융단폭격) -->
