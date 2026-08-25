@@ -13,6 +13,7 @@ import { initEnemies, updateEnemies, clearAll, getActors, spawnMortars } from '.
 import { initBossScene, resetBoss } from './boss.js';
 import { initMulgitScene, resetMulgit } from './mulgit.js';
 import { initThrowables, updateThrowables } from './throwables.js';
+import { initPickups, updatePickups, clearPickups } from './pickups.js';
 import { initVmSprite, updateVmSprite } from './vmsprite.js';
 import { initFlow, updateFlow, beginRun } from './flow.js';
 import { initVfx, updateVfx } from './vfx.js';
@@ -28,9 +29,9 @@ const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.autoClear = false;
 renderer.autoClearColor = false;               // r180: 2-패스에서 배경이 1패스를 덮는 것 방지
-renderer.setClearColor(0x0a1220, 1);
+renderer.setClearColor(0x0b0e18, 1);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.45;
+renderer.toneMappingExposure = 1.38;   // Witchfire 그레이드: 저채도·고콘트라스트는 CSS filter 가 마무리
 const RETRO = params.get('retro') === '1';   // 기본 고해상도 — ?retro=1 로 픽셀 룩
 document.body.classList.toggle('retro', RETRO);
 function sizeRenderer() {
@@ -49,13 +50,14 @@ sizeRenderer();
 
 const scene = new THREE.Scene();
 scene.background = null;                       // 배경은 clearColor + 하늘 돔이 담당
-scene.fog = new THREE.FogExp2(0x0a1220, PERF.fogDensity);
+scene.fog = new THREE.FogExp2(0x0b0e18, PERF.fogDensity);
 
 const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.05, PERF.cameraFar);
 
 // 조명 — 밤의 경복궁 (달빛 + 등롱)
-const hemi = new THREE.HemisphereLight(0x46577f, 0x1c1710, 2.7);
-const moon = new THREE.DirectionalLight(0xa8c4ff, 2.2); moon.position.set(-30, 60, 10);
+// Witchfire 문법: 달빛 키가 지배, 헤미 필은 저채도 + 웜 엠버 바운스
+const hemi = new THREE.HemisphereLight(0x3e4a66, 0x2a1c10, 2.35);
+const moon = new THREE.DirectionalLight(0xcfdcf4, 2.7); moon.position.set(-30, 60, 10);
 const bossGlow = new THREE.PointLight(0x9fd8d4, 2.6, 40); bossGlow.position.set(0, 6, -132);
 for (const l of [hemi, moon, bossGlow]) { l.layers.enable(1); scene.add(l); }
 
@@ -75,6 +77,7 @@ initEnemies(scene);
 initBossScene(scene);
 initMulgitScene(scene);
 initThrowables(scene);
+initPickups(scene);
 initVfx(scene);
 initAudio();
 initFlow();
@@ -83,7 +86,7 @@ initDebugOverlay(renderer);
 state.on('bossMortar', (n) => spawnMortars(n));
 state.on('debugKillWave', () => { for (const a of [...getActors()]) if (a.alive) a.onHit(a.headOnly ? 'hitHead' : 'hitBody', 9999, {}); });
 state.on('debugJump', (idx) => {
-  clearAll(); clearDangerShots(); resetBoss(); resetMulgit();
+  clearAll(); clearDangerShots(); resetBoss(); resetMulgit(); clearPickups();
   const z = ZONES[Math.min(idx, ZONES.length - 1)];
   teleport(z.anchor[0], z.enterZ - 2); // 존 경계 안쪽으로
 });
@@ -109,6 +112,7 @@ function loop(t) {
     updateCombat(dt);
     updateWeapons(dt);
     updateThrowables(dt);
+    updatePickups(dt);
   }
   updateVfx(dt);
   updateVmSprite(dt);
@@ -142,7 +146,7 @@ if (params.get('debug') === '1') {
       const dt = 16.7 * (state._timescale || 1);
       if (state.phase === 'play' && !state.paused) {
         if (state._god) state.player.hp = Math.max(state.player.hp, 100);
-        updateRail(dt); updateEnemies(dt); updateFlow(dt); updateCombat(dt); updateWeapons(dt); updateThrowables(dt);
+        updateRail(dt); updateEnemies(dt); updateFlow(dt); updateCombat(dt); updateWeapons(dt); updateThrowables(dt); updatePickups(dt);
       }
       updateVfx(dt); updateVmSprite(dt); updateUI();
     }

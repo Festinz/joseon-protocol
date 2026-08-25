@@ -37,6 +37,7 @@ export function initAudio() {
   state.on('mulgitWave', () => sfxBoom(0.9));
   state.on('mulgitCharge', () => sfxWhoosh());
   state.on('mulgitDefeated', () => { sfxBoom(); setTimeout(sfxBoom, 500); });
+  state.on('pickupTaken', () => sfxBlip());   // 드랍 아이템 획득
 }
 
 export function unlockAudio() { // 첫 클릭에서 호출 (자동재생 정책)
