@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { state, now } from './state.js';
 import { rig } from './rail.js';
-import { registerHittable, damagePlayer, creditKill } from './combat.js';
+import { registerHittable, damagePlayer, creditKill, creditHit } from './combat.js';
 import { buildSoldier, MAT } from './assets.js';
 import { burst, kick, shockwave } from './vfx.js';
 
@@ -60,17 +60,21 @@ export function spawnMulgit(pos = [0, 0, -103]) {
   registerHittable(hit, actor);
 
   m = { group, actor, hp: CFG.hp, st: 'CHASE', stT: now(), lastCharge: 0, lastWave: now(), dmgAcc: 0,
-        chargeDir: new THREE.Vector3(), mixer: null, clips: null };
-  state.emit('bannerShow', '중간보스 — 멀기트, 탐관오리 사또');
+        chargeDir: new THREE.Vector3(), mixer: null, clips: null, curClip: null, swung: false };
+  state.emit('bannerShow', '중간보스 — 사또, 백성을 쥐어짜던 탐관오리');
   state.emit('mulgitSpawned');
   return m;
 }
 
-function playClip(names, loop) {
+// 같은 클립을 매 프레임 reset 하면 애니가 첫 프레임에 갇힌다 → 현재 클립을 기억해 두고
+// 실제로 바뀔 때만 갈아탄다. force=true 는 같은 클립을 처음부터 다시 치고 싶을 때(연격).
+function playClip(names, loop, force = false) {
   if (!m || !m.mixer || !m.clips) return;
   for (const n of names) {
     const key = Object.keys(m.clips).find(k => k.includes(n));
     if (key) {
+      if (m.curClip === key && !force) return;
+      m.curClip = key;
       m.mixer.stopAllAction();
       const a = m.mixer.clipAction(m.clips[key]);
       a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
@@ -81,6 +85,7 @@ function playClip(names, loop) {
 }
 
 function takeHit(dmg) {
+  creditHit();          // 궁극기 게이지 — 중간보스 구간에도 충전 경로 확보
   if (!m || m.hp <= 0) return;
   m.hp -= dmg; m.dmgAcc += dmg;
   state.emit('bossPartHit');
@@ -99,7 +104,7 @@ function die() {
   burst(m.group.position.clone().add(_v.set(0, 2, 0)), 40, 0x9fd8d4, 4, 900, 0.5);
   kick(2.5);
   state.emit('mulgitDefeated');
-  state.emit('bannerShow', '멀기트 격파 — 탐관오리를 처단했다');
+  state.emit('bannerShow', '사또 격파 — 탐관오리를 처단했다');
   const g = m.group;
   const t0 = now();
   const iv = setInterval(() => {
@@ -130,11 +135,11 @@ export function updateMulgit(dt) {
 
   switch (m.st) {
     case 'CHASE': {
-      playClipOnce_('walk');
+      playClip(['walk', 'walking'], true);
       _v.subVectors(_p.set(pp.x, m.group.position.y, pp.z), m.group.position).normalize();
       m.group.position.addScaledVector(_v, CFG.speed * dts);
       // 패턴 선택
-      if (dist < CFG.meleeRange) { m.st = 'SLAM_WINDUP'; m.stT = t; auraOn(0xffa030); playClip(['attack', 'swing', 'slam'], false); }
+      if (dist < CFG.meleeRange) { m.st = 'SLAM_WINDUP'; m.stT = t; m.swung = false; auraOn(0xffa030); playClip(['idle'], true); }
       else if (dist > CFG.charge.minDist && t - m.lastCharge > CFG.charge.cooldown) {
         m.st = 'CHARGE_TELE'; m.stT = t; auraOn(0xff3020);
         m.chargeDir.subVectors(_p.set(pp.x, m.group.position.y, pp.z), m.group.position).normalize();
@@ -144,19 +149,25 @@ export function updateMulgit(dt) {
     }
     case 'SLAM_WINDUP': {  // 엇박: 정박(0.9s)에서 한 번 멈칫 → +0.42s 에 진짜 타격
       const el = t - m.stT;
+      // 스윙 모션은 타격 0.36s 전에 시작해야 내려찍는 순간과 데미지가 맞는다.
+      // (전에는 윈드업 시작에 걸어서 스윙이 끝난 한참 뒤에 데미지가 났다)
+      if (!m.swung && el >= CFG.slam.windup1 + CFG.slam.offbeat - 360) {
+        m.swung = true; playClip(['swing', 'hammer', 'attack', 'slam'], false, true);
+      }
       if (el >= CFG.slam.windup1 + CFG.slam.offbeat) {
         auraOff();
         burst(m.group.position.clone(), 20, 0xffa050, 3, 400, 0.4);
         shockwave(m.group.position.clone(), CFG.slam.dmgRadius * 0.7);
         kick(1.8);
         state.emit('mulgitSlam');
-        if (dist < CFG.slam.dmgRadius && rig.dolly.position.y < 2) damagePlayer(CFG.slam.dmg, '멀기트의 철퇴 — 엇박에 당했다');
+        if (dist < CFG.slam.dmgRadius && rig.dolly.position.y < 2) damagePlayer(CFG.slam.dmg, '사또의 철퇴 — 엇박에 당했다');
         m.st = 'RECOVER'; m.stT = t;
       }
       break;
     }
-    case 'CHARGE_TELE': {
-      if (t - m.stT >= CFG.charge.tele) { m.st = 'CHARGE'; m.stT = t; auraOff(); state.emit('mulgitCharge'); playClip(['run', 'sprint', 'charge'], true); }
+    case 'CHARGE_TELE': {   // 돌진 예고 — 몸을 낮추고 노려본다
+      playClip(['idle'], true);
+      if (t - m.stT >= CFG.charge.tele) { m.st = 'CHARGE'; m.stT = t; auraOff(); state.emit('mulgitCharge'); playClip(['charge', 'run', 'sprint'], true); }
       break;
     }
     case 'CHARGE': {
@@ -166,13 +177,14 @@ export function updateMulgit(dt) {
       const along = _v.dot(m.chargeDir);
       const lat = Math.sqrt(Math.max(0, _v.lengthSq() - along * along));
       if (along > -1 && along < 2.2 && lat < CFG.charge.halfWidth) {
-        damagePlayer(CFG.charge.dmg, '멀기트의 돌진');
+        damagePlayer(CFG.charge.dmg, '사또의 돌진');
         m.st = 'RECOVER'; m.stT = t; m.lastCharge = t;
       }
       if (t - m.stT > CFG.charge.durMs) { m.st = 'RECOVER'; m.stT = t; m.lastCharge = t; }
       break;
     }
     case 'WAVE_TELE': {
+      playClip(['swing', 'hammer', 'attack', 'idle'], false);   // 충격파 모으는 동작 (전엔 정지)
       if (t - m.stT >= CFG.wave.tele) {
         auraOff(); m.lastWave = t;
         shockwave(m.group.position.clone(), CFG.wave.radius);
@@ -184,13 +196,19 @@ export function updateMulgit(dt) {
       }
       break;
     }
-    case 'STAGGER': { if (t - m.stT > 900) { m.st = 'CHASE'; } break; }
-    case 'RECOVER': { if (t - m.stT > 800) { m.st = 'CHASE'; playClip(['idle', 'walk'], true); } break; }
+    case 'STAGGER': {       // 경직 — 맞고 휘청인다 (전엔 정지)
+      playClip(['hit', 'damage', 'idle'], false);
+      if (t - m.stT > 900) { m.st = 'CHASE'; }
+      break;
+    }
+    case 'RECOVER': {       // 후딜 — 숨 고르기
+      playClip(['idle'], true);
+      if (t - m.stT > 800) { m.st = 'CHASE'; }
+      break;
+    }
   }
 }
 
-let lastWalk = 0;
-function playClipOnce_(n) { const t = now(); if (t - lastWalk > 2000) { lastWalk = t; playClip([n, 'walking'], true); } }
 
 // 텔레그래프 오라
 let aura = null;

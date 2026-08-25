@@ -7,7 +7,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { PLAYER, DANGER } from './config.js';
 import { state, now } from './state.js';
 import { instantiate } from './assets.js';
-import { registerHittable, spawnDangerShot, creditKill, creditShootdown, damagePlayer } from './combat.js';
+import { registerHittable, spawnDangerShot, creditKill, creditShootdown, creditHit, damagePlayer } from './combat.js';
 import { spawnWave } from './enemies.js';
 import { rig } from './rail.js';
 
@@ -125,6 +125,7 @@ export function initBossFight(node, isContinue = false) {
     const coreActor = { alive: true, headOnly: false, hp: CFG.coreHp, isCore: true,
       onHit: (part, dmg) => {
         if (!boss.coreOpen) { state.emit('shotBlockedByShield', {}); return; }
+        creditHit();                        // 궁극기 게이지 — 보스전에도 재충전 경로가 있어야 한다
         coreActor.hp -= dmg * CFG.coreMult; // dmg 는 무기·콤보 반영값, 코어는 ×3
         state.emit('bossCoreHit', coreActor.hp / CFG.coreHp);
         emitBossHp();
@@ -141,6 +142,7 @@ export function initBossFight(node, isContinue = false) {
     const bodyActor = { alive: true, headOnly: false, isBossBody: true,
       onHit: (part, dmg) => {
         if (!boss || boss.phase === 0 || !coreActor.alive) return;
+        creditHit();                        // 몸샷도 게이지는 준다 (코어 창을 못 잡아도 회복 가능)
         coreActor.hp -= dmg * (boss.coreOpen ? 1.2 : 0.35); // 몸샷 감쇠 — 코어 창이 항상 최적
         state.emit('bossPartHit', bodyHit);
         emitBossHp();
@@ -290,7 +292,7 @@ function updateMelee(dt) {
 
   // 기본은 플레이어를 바라본다 (돌진 중엔 돌진 방향)
   let faceYaw = Math.atan2(_toP.x, _toP.z);
-  let tiltX = 0, crouchY = 0;
+  let tiltX = 0, crouchY = 0, rollZ = null, yawWhip = 0;
 
   if (mv.mode === 'PROWL') {
     // 스토킹: 선호 거리 유지 + 좌우 배회 — 살아있는 맹수의 문법
@@ -301,6 +303,8 @@ function updateMelee(dt) {
     const vz = dirZ * want * MELEE.prowlSpeed + (dirX) * sway;
     g.position.x += vx * dts; g.position.z += vz * dts;
     mv.bob += dts * (2.5 + Math.abs(want) * 4);
+    crouchY = -0.12;                                       // 스토킹 자세로 살짝 낮게
+    rollZ = Math.sin(mv.bob * 0.5) * 0.085;                // 네발짐승 활보 — 롤을 깊게
     if (t >= mv.nextMeleeAt) {
       mv.target.copy(pp);
       if (dist < MELEE.claw.range) {                        // 근접: 할퀴기 연격 (엇박)
@@ -343,6 +347,7 @@ function updateMelee(dt) {
     g.position.z = mv.from.z + (mv.target.z - mv.from.z) * k;
     boss.inner.position.y = Math.sin(Math.min(1, k) * Math.PI) * 5;
     tiltX = 0.22 - k * 0.4;
+    rollZ = Math.sin(k * Math.PI) * 0.12;                  // 도약 중 몸을 살짝 비튼다
     faceYaw = Math.atan2(mv.target.x - mv.from.x, mv.target.z - mv.from.z);
     if (k >= 1) {
       boss.inner.position.y = 0;
@@ -355,6 +360,13 @@ function updateMelee(dt) {
   } else if (mv.mode === 'CLAW') {
     // 3연격 엇박: 한 발짝 파고들며 전방 부채꼴 휘두르기
     tiltX = 0.08;
+    // 휘두른 직후 몸이 반대로 채이는 스냅 — 좌우 교대라 3연격이 눈으로 세어진다
+    const sinceSwipe = Math.max(0, MELEE.claw.stepMs - (mv.until - t));
+    const whip = Math.max(0, 1 - sinceSwipe / 240);
+    const side = (mv.swipeN % 2) ? 1 : -1;
+    yawWhip = side * whip * 0.42;
+    rollZ = -side * whip * 0.30;
+    crouchY = -0.15 * whip;
     if (t >= mv.until) {
       mv.swipeN += 1;
       const dirX = _toP.x / (dist || 1), dirZ = _toP.z / (dist || 1);
@@ -368,6 +380,9 @@ function updateMelee(dt) {
     }
   } else if (mv.mode === 'RECOVER') {
     crouchY = -0.2;
+    mv.bob += dts * 1.4;                                   // 느리고 큰 숨 — 빈틈이라는 신호
+    tiltX = 0.05 + Math.sin(t * 0.006) * 0.035;            // 어깨를 들썩인다
+    rollZ = Math.sin(t * 0.005) * 0.03;
     if (t >= mv.until) {
       mv.mode = 'PROWL';
       mv.nextMeleeAt = t + MELEE.actEveryMs * (0.8 + Math.random() * 0.45) * (boss.finale ? 0.7 : 1);
@@ -382,9 +397,10 @@ function updateMelee(dt) {
   if (mv.mode !== 'LEAP') boss.inner.position.y = crouchY + Math.abs(Math.sin(mv.bob)) * 0.28 + Math.sin(t * 0.0012) * 0.1;
   const dy = ((faceYaw - mv.yaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
   mv.yaw += dy * Math.min(1, dts * (mv.mode === 'CHARGE' ? 2.5 : 5));
-  g.rotation.y = mv.yaw;
+  g.rotation.y = mv.yaw + yawWhip;                         // 할퀴기 스냅은 목표 조준과 별개로 얹는다
   boss.inner.rotation.x += (tiltX - boss.inner.rotation.x) * Math.min(1, dts * 8);
-  boss.inner.rotation.z = Math.sin(mv.bob * 0.5) * 0.045;  // 몸통 롤 — 네발짐승 활보감
+  const targetRoll = rollZ === null ? Math.sin(mv.bob * 0.5) * 0.045 : rollZ;
+  boss.inner.rotation.z += (targetRoll - boss.inner.rotation.z) * Math.min(1, dts * 12);
 }
 
 function startPhase2() {
