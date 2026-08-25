@@ -116,12 +116,16 @@ function die() {
   state.emit('bannerShow', '사또 격파 — 탐관오리를 처단했다');
   const g = m.group;
   const t0 = now();
+  const hasClip = !!(m.mixer && m.clips && Object.keys(m.clips).some(k => k.includes('dying') || k.includes('death')));
   const iv = setInterval(() => {
-    const k = Math.min(1, (now() - t0) / 1500);
-    g.rotation.x = -k * 1.2; g.position.y = -k * 0.6;
-    if (k >= 1) { clearInterval(iv); if (g.parent) g.parent.remove(g); }
+    const k = Math.min(1, (now() - t0) / (hasClip ? 2400 : 1500));
+    if (!hasClip) { g.rotation.x = -k * 1.2; g.position.y = -k * 0.6; }   // 클립 없을 때만 수동 전도
+    else if (k > 0.7) {                                                    // 클립 종료 후 가라앉으며 소멸
+      const s2 = (k - 0.7) / 0.3;
+      g.position.y = -s2 * 1.4;
+    }
+    if (k >= 1) { clearInterval(iv); if (g.parent) g.parent.remove(g); m = null; }
   }, 33);
-  setTimeout(() => { m = null; }, 1600);
 }
 
 function despawn() { clearBombs(); if (m?.group?.parent) m.group.parent.remove(m.group); m = null; }
@@ -135,7 +139,12 @@ export function sattoTakeDamage(pos, radius, dmg) {
 }
 
 export function updateSatto(dt) {
-  if (!m || m.hp <= 0) { updateBombs(now()); return; }   // 남은 진천뢰는 마저 터뜨린다
+  if (!m || m.hp <= 0) {
+    updateBombs(now());
+    // 사망 클립(dying_backwards)이 끝까지 재생되도록 믹서는 계속 돌린다
+    if (m && m.mixer) m.mixer.update(Math.min(0.05, dt / 1000));
+    return;
+  }
   const dts = Math.min(0.05, dt / 1000);
   const t = now();
   updateBombs(t);                     // 예고된 진천뢰는 사또가 죽어도 터진다
