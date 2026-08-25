@@ -91,24 +91,25 @@ export function updateVmSprite(dt) {
   }
 
   // ADS: 총을 내리고 조준경(스코프 오버레이)으로 전환 — 2D 스프라이트의 견착 문법
-  const sign = state.hand === 'L' ? 1 : -1;
-  const adsX = sign * adsT * (innerWidth * 0.02);
+  // 미러는 #vmwrap scaleX(-1) 이 전담 — 여기선 손 부호 보정 없음. 화면공간인 스웨이만 wsign.
+  const wsign = state.hand === 'L' ? -1 : 1;
+  const adsX = -adsT * (innerWidth * 0.02);
   const adsY = adsT * (innerHeight * 0.62);
   const crouchY = state.playerCrouching ? 14 : 0;
   // 상하 조준 패럴랙스: 위를 보면 총이 내려가고 살짝 들리는 느낌 (2D 스프라이트의 3D 착시)
   const pitch = state._pitchVal || 0;
   const pitchY = pitch * 46;          // 위(+pitch) → 스프라이트 아래로
-  const pitchR = -pitch * 3.2 * (state.hand === 'L' ? -1 : 1);
+  const pitchR = -pitch * 3.2;
 
   // 조준감: 원근 단축 — 총구(이미지 좌단)가 화면 안쪽(크로스헤어 방향)으로 후퇴.
-  // 미러(hand-L)는 CSS scale 이 렌더 전체를 뒤집으므로 rotateY 는 자동 보정, rotate 상수만 부호 반전.
-  const mir = state.hand === 'L' ? -1 : 1;
+  // 래퍼 미러가 전체를 뒤집으므로 아트 공간 항은 부호 보정 불필요, 화면공간(스웨이)만 wsign 적용.
   const aimYaw = 17 * (1 - adsT * 0.7);          // ADS 시 정렬 (덜 기울임)
   const aimTilt = -4.5 * (1 - adsT * 0.6);       // 총구 살짝 들어 크로스헤어 쪽으로
+  const swx = swayX * swayScale * wsign;
   img.style.transform =
-    `perspective(1000px) translate(${bobX + ax + adsX + swayX * swayScale}px, ${bobY + ay + adsY + kickY + crouchY + pitchY + swayY * swayScale}px) ` +
+    `perspective(1000px) translate(${bobX + ax + adsX + swx}px, ${bobY + ay + adsY + kickY + crouchY + pitchY + swayY * swayScale}px) ` +
     `rotateY(${aimYaw}deg) ` +
-    `rotate(${(kickR + ar + aimTilt) * mir + pitchR + swayX * swayScale * 0.05}deg) scale(${scale + adsT * 0.16})`;
+    `rotate(${kickR + ar + aimTilt + pitchR + swx * 0.05}deg) scale(${scale + adsT * 0.16})`;
 
   // 스코프 오버레이 페이드 + 레티클 미세 스웨이, 기본 크로스헤어는 스코프에 양보
   if (scopeEl) {

@@ -115,8 +115,7 @@
          filter:brightness(.82) saturate(.92) drop-shadow(0 0 18px rgba(0,0,0,.6)); transition:none;
          -webkit-mask-image:linear-gradient(to right, transparent 0, #000 11%);
          mask-image:linear-gradient(to right, transparent 0, #000 11%)}  /* 아트 좌측 경계선을 어둠으로 페이드 */
-  body.hand-L #vmwrap{right:auto; left:-2.5vw}
-  body.hand-L #vmimg{transform-origin:30% 100%; scale:-1 1}
+  body.hand-L #vmwrap{right:auto; left:-2.5vw; transform:scaleX(-1)}  /* 래퍼 통째 미러 — 원점 50% 제자리 반전 */
 
   /* ── 무기 휠 ── */
   #wheel{inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:70; background:rgba(6,8,20,.55)}
