@@ -32,9 +32,11 @@ export const PLAYER = {
 // ── 무기 — PPTX {0}/{1} 규칙: 재장전량 = min(MaxMag-현재, 예비), 예비에서 정확히 차감 ──
 export const WEAPONS = {
   rifle:   { key: 'rifle',   name: '영천 장총', mag: 6, reserve: 60, dmg: 10, weakMult: 2, fireMs: 330, reloadMs: 600,  spread: 12, kick: 0.045 },
-  carbine: { key: 'carbine', name: '승자 권총', mag: 8, reserve: 48, dmg: 6,  weakMult: 2, fireMs: 180, reloadMs: 800,  spread: 24, kick: 0.028 },
+  // 조선 산탄총: 펠릿 8발을 한 번에. 근거리 폭발력, 원거리는 급격히 무력해진다
+  carbine: { key: 'carbine', name: '조선 산탄총', mag: 5, reserve: 30, dmg: 9, weakMult: 2, fireMs: 620, reloadMs: 1100, spread: 0, kick: 0.16,
+             pellets: 8, spreadDeg: 7.5, falloffFrom: 8, falloffTo: 22, minMult: 0.15 },
   ritual:  { key: 'ritual',  name: '흑각궁',    mag: 1, reserve: 3,  dmg: 60, weakMult: 2, fireMs: 800, reloadMs: 1600, spread: 8,  kick: 0.10,
-             silent: true },   // 활 — 무소음 (은신 시너지)
+             silent: true, drawMs: 520 },   // 활 — 무소음(은신 시너지) + 시위 당김 선행
   hwando:  { key: 'hwando',  name: '환도',      mag: 1, reserve: 0,  dmg: 34, weakMult: 2, fireMs: 420, reloadMs: 0,    spread: 0,  kick: 0.06,
              melee: true, range: 2.6, arcDeg: 100 },   // 근접 — 탄약 없음, 숏앤슬래시
 };

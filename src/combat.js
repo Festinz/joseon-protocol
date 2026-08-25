@@ -88,6 +88,8 @@ export function tryFire() {
   muzzleWorld(_v3);
   state.emit('shotFired', { muzzle: _v3.clone() });
 
+  if (cfg.pellets) return shotgunBlast(cfg);   // 산탄: 펠릿 N 발을 각각 판정
+
   // 히트스캔: 화면 중앙 (포인터락)
   raycaster.setFromCamera({ x: 0, y: 0 }, rig.camera);
   raycaster.far = 200;
@@ -126,6 +128,52 @@ export function tryFire() {
   } else {
     state.combo = 0; state.comboMult = 1; state.emit('comboChanged');
   }
+}
+
+// ── 산탄총: 펠릿을 원뿔로 뿌리고 각각 히트스캔 + 거리 감쇠 ──
+// 한 발이 아니라 여러 발이므로 "빗맞음" 이 부분 명중이 된다. 명중률 통계는 발당 1회만 센다.
+function shotgunBlast(cfg) {
+  const half = cfg.spreadDeg * Math.PI / 180;
+  let anyHit = false;
+  const dealt = new Map();          // actor -> {dmg, part, point}
+  for (let i = 0; i < cfg.pellets; i++) {
+    // 원형 균등 분포 (√r 로 중심 쏠림 방지)
+    const ang = Math.random() * Math.PI * 2;
+    const rad = Math.sqrt(Math.random()) * half;
+    raycaster.setFromCamera({ x: Math.cos(ang) * rad, y: Math.sin(ang) * rad }, rig.camera);
+    raycaster.far = 200;
+    const targets = hittables.filter(h => h.userData.actor?.alive);
+    const hits = raycaster.intersectObjects(targets, false);
+    if (!hits.length) continue;
+    const h = hits[0];
+    const a = h.object.userData.actor;
+    const part = h.object.name;
+    // 거리 감쇠: falloffFrom 까지 100%, falloffTo 부터 minMult
+    const d = h.distance;
+    const k = d <= cfg.falloffFrom ? 1
+            : d >= cfg.falloffTo ? cfg.minMult
+            : 1 - (1 - cfg.minMult) * (d - cfg.falloffFrom) / (cfg.falloffTo - cfg.falloffFrom);
+    const weak = part !== 'hitBody';
+    const dmg = cfg.dmg * (weak ? cfg.weakMult : 1) * k;
+    const cur = dealt.get(a) || { dmg: 0, part: 'hitBody', point: h.point, weak: false };
+    cur.dmg += dmg;
+    if (weak) { cur.part = part; cur.weak = true; }
+    cur.point = h.point;
+    dealt.set(a, cur);
+    anyHit = true;
+  }
+  if (anyHit) {
+    state.shotsHit += 1;
+    bumpCombo();
+    for (const [a, v] of dealt) {
+      a.onHit(v.part, v.dmg * state.comboMult, { weak: v.weak, weapon: cfg.key, shotgun: true });
+      state.emit('shotHit', { point: v.point, weak: v.weak, part: v.part });
+      if (a.headOnly && v.part === 'hitBody') state.emit('shotBlockedByShield', { point: v.point });
+    }
+  } else {
+    state.combo = 0; state.comboMult = 1; state.emit('comboChanged');
+  }
+  state.emit('shotgunBlast', dealt.size);
 }
 
 // ── 환도 근접 베기: 전방 부채꼴 내 최근접 적 1체 ──

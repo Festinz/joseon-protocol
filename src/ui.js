@@ -140,7 +140,7 @@ export function initUI({ onRunStart, onRestart }) {
     document.querySelector('#bossslot i').style.width = Math.max(0, r * 100) + '%';
     if (r <= 0) bossHideTimer = setTimeout(() => $('bossbar').classList.add('hidden'), 1200);
   };
-  state.on('mulgitHp', (r) => showBossBar('사 또', r));
+  state.on('sattoHp', (r) => showBossBar('사 또', r));
   state.on('bossHpRatio', (r) => showBossBar('해 태', Math.max(0, r)));
   state.on('bossDefeated', () => showBossBar('해 태', 0));
   state.on('gateOpened', () => {});
@@ -173,7 +173,7 @@ function renderAmmo() {
   renderSlots();
   renderWheelHl(state.currentWeapon);
 }
-const WHEEL_ANGLE = { rifle: 45, hwando: 135, carbine: 225, ritual: 315 }; // X자 4등분: ↗장총 ↘환도 ↙권총 ↖활
+const WHEEL_ANGLE = { rifle: 45, hwando: 135, carbine: 225, ritual: 315 }; // X자 4등분: ↗장총 ↘환도 ↙산탄총 ↖활
 function renderWheelHl(key) {
   const k = key || state._wheelPick || state.currentWeapon;
   $('wheelhl').style.setProperty('--a', (WHEEL_ANGLE[k] || 0) + 'deg');

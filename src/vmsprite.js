@@ -6,8 +6,8 @@ import { WEAPONS, HEAVY } from './config.js';
 
 const SPRITES = {
   rifle: 'assets/vm/rifle.png',
-  carbine: 'assets/vm/rifle.png',     // 전용 아트 없음 — 소총 공유
-  ritual: 'assets/vm/rifle.png',
+  carbine: 'assets/vm/shotgun.png',   // 조선 산탄총
+  ritual: 'assets/vm/bow.png',        // 흑각궁
   hwando: 'assets/vm/dagger.png',     // 근접 — 단도/환도 아트
   dagger: 'assets/vm/dagger.png',
   grenade: 'assets/vm/grenade.png',
@@ -30,7 +30,14 @@ export function initVmSprite() {
 
   state.on('handChosen', (h) => document.body.classList.toggle('hand-L', h === 'L'));
   state.on('weaponChanged', refresh);
-  state.on('shotFired', () => { kickY = 26; kickR = 3.5; });
+  state.on('shotFired', () => {
+    const k = WEAPONS[state.currentWeapon];
+    kickY = 26 * (k?.kick ? k.kick / 0.045 : 1); kickR = 3.5 * (k?.kick ? k.kick / 0.045 : 1);
+    // 산탄총: 발사 직후 펌프를 당겼다 민다 (재장전과 별개의 짧은 동작)
+    if (k?.pellets) { const dur = k.fireMs; override = { sprite: cur(), until: now() + dur, anim: 'pump', dur }; }
+    // 활: 쏘면 시위가 튕기고 다음 화살을 매긴다
+    if (k?.silent && k?.drawMs) { const dur = k.drawMs; override = { sprite: cur(), until: now() + dur, anim: 'nock', dur }; }
+  });
   state.on('reloadStart', (key) => {
     const ms = (WEAPONS[key || state.currentWeapon]?.reloadMs || 600) + 250;
     override = { sprite: cur(), until: now() + ms, anim: 'reload', dur: ms };
@@ -54,6 +61,8 @@ export function initVmSprite() {
 }
 
 function cur() { return SPRITES[state.currentWeapon] || SPRITES.rifle; }
+// 0..1 구간을 pivot 기준으로 0..1 로 다시 편다 (전/후반 대칭 동작용)
+function k2(k, pivot) { return k < pivot ? k / pivot : (k - pivot) / (1 - pivot); }
 function refresh() { if (img) img.src = cur(); }
 
 export function updateVmSprite(dt) {
@@ -100,6 +109,16 @@ export function updateVmSprite(dt) {
       ay = -30 - 90 * Math.sin(s * Math.PI);                  // 호 (중간에 치켜들림)
       ar = 26 - 78 * s;                                       // 칼날 각도 회전
       scale = 1 + 0.12 * Math.sin(s * Math.PI);
+    }
+    if (override.anim === 'pump') {          // 펌프 액션: 뒤로 당겼다(전반) 앞으로 민다(후반)
+      const p = k2(k, 0.42);
+      ax = (k < 0.42 ? -70 * p : -70 * (1 - p)) ;
+      ar = (k < 0.42 ? -7 * p : -7 * (1 - p));
+      ay = 10 * Math.sin(k * Math.PI);
+    }
+    if (override.anim === 'nock') {          // 시위: 놓는 순간 앞으로 튀었다가 다음 화살을 당겨 온다
+      if (k < 0.3) { const p = k / 0.3; ax = -46 * p; ar = 5 * p; }
+      else { const p = (k - 0.3) / 0.7, e = p * p * (3 - 2 * p); ax = -46 * (1 - e) + 26 * Math.sin(p * Math.PI); ar = 5 * (1 - e); }
     }
     if (override.anim === 'throw') { ay = 30 - 90 * Math.sin(Math.min(1, k * 1.3) * Math.PI); ar = -6 * Math.sin(k * Math.PI); }
     if (override.anim === 'heavy') {
