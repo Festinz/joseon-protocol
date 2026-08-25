@@ -129,9 +129,17 @@ export function buildSoldier(variant = 'grunt') {
   ];
   const body = mergeParts(parts); body.name = 'body'; torso.add(body);
   // 변형 마커는 병합 밖 별도 메시 — GLB 몸체 스왑 후에도 위협도 색 코딩 유지
-  if (variant === 'marksman') { // 붉은 어깨띠 — 색 코딩이 곧 게임플레이
-    const sash = new THREE.Mesh(G.torus, MAT.DANGER); sash.name = 'variantMark';
-    sash.position.y = 0.34; sash.rotation.set(Math.PI / 2, 0, 0.5); sash.scale.set(0.55, 0.55, 0.9); torso.add(sash);
+  if (variant === 'marksman') { // 붉은 어깨띠 — 색 코딩이 곧 게임플레이 (명중탄을 쏘는 유일한 적)
+    // 이전엔 G.torus 를 눕혀(rx=PI/2) 반지름 0.5 짜리 고리를 썼다. Meshy 병사 GLB 로 몸체가
+    // 바뀐 뒤로는 몸통보다 커서 가슴을 관통하는 "빨간 링" 으로 보였다. 실제 '띠' 로 교체한다.
+    const sash = new THREE.Mesh(G.box, MAT.DANGER); sash.name = 'variantMark';
+    sash.position.set(0, 0.26, 0.2);        // 가슴 앞면 (+z = 정면)
+    sash.rotation.z = 0.62;                 // 왼어깨 → 오른허리 대각
+    sash.scale.set(0.12, 0.8, 0.1);
+    torso.add(sash);
+    const knot = new THREE.Mesh(G.sphere, MAT.DANGER);   // 허리 매듭 — 실루엣에 점 하나
+    knot.name = 'variantKnot'; knot.position.set(0.2, -0.06, 0.2); knot.scale.setScalar(0.13);
+    torso.add(knot);
   }
   if (variant === 'thrower') { // 등의 화약통 (등 = -z)
     const pack = new THREE.Group(); pack.name = 'variantMark';
