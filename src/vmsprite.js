@@ -2,6 +2,7 @@
 // 3D 뷰모델을 대체한다. 견착(hand)에 따라 좌우 미러 — 영구 선택이 화면에 상시 보인다.
 
 import { state, now } from './state.js';
+import { WEAPONS } from './config.js';
 
 const SPRITES = {
   rifle: 'assets/vm/rifle_s.png',
@@ -25,7 +26,10 @@ export function initVmSprite() {
   state.on('handChosen', (h) => document.body.classList.toggle('hand-L', h === 'L'));
   state.on('weaponChanged', refresh);
   state.on('shotFired', () => { kickY = 26; kickR = 3.5; });
-  state.on('reloadStart', () => { override = { sprite: cur(), until: now() + 500, anim: 'reload' }; });
+  state.on('reloadStart', (key) => {
+    const ms = (WEAPONS[key || state.currentWeapon]?.reloadMs || 600) + 250;
+    override = { sprite: cur(), until: now() + ms, anim: 'reload', dur: ms };
+  });
   state.on('assassinateDone', () => { override = { sprite: SPRITES.dagger, until: now() + 700, anim: 'stab' }; });
   state.on('grenadeThrown', () => { override = { sprite: SPRITES.grenade, until: now() + 650, anim: 'throw' }; });
   state.on('ultCastStart', () => { override = { sprite: SPRITES.mapae, until: now() + 1700, anim: 'raise' }; });
@@ -60,11 +64,17 @@ export function updateVmSprite(dt) {
   // 연출 애니 오프셋
   let ax = 0, ay = 0, ar = 0, scale = 1;
   if (override) {
-    const k = 1 - Math.max(0, (override.until - t)) / 700;
+    const dur = override.dur || 700;
+    const k = 1 - Math.max(0, (override.until - t)) / dur;
     if (override.anim === 'stab') { ax = -60 * Math.sin(k * Math.PI); ay = -40 * Math.sin(k * Math.PI); ar = -8 * Math.sin(k * Math.PI); }
     if (override.anim === 'throw') { ay = 30 - 90 * Math.sin(Math.min(1, k * 1.3) * Math.PI); ar = -6 * Math.sin(k * Math.PI); }
     if (override.anim === 'raise') { ay = 40 - 70 * Math.min(1, k * 2); scale = 1.06; }
-    if (override.anim === 'reload') { ay = 34 * Math.sin(k * Math.PI); ar = 5 * Math.sin(k * Math.PI); }
+    if (override.anim === 'reload') {
+      // 총을 내리고(0~0.35) → 기울여 만지작(0.35~0.8, 흔들림) → 척 올림(0.8~1)
+      if (k < 0.35) { const p = k / 0.35; ay = 90 * p; ar = 14 * p; }
+      else if (k < 0.8) { const p = (k - 0.35) / 0.45; ay = 90 + Math.sin(p * Math.PI * 3) * 10; ar = 14 - p * 4; ax = Math.sin(p * Math.PI * 2) * 8; }
+      else { const p = (k - 0.8) / 0.2; ay = 90 * (1 - p * p); ar = 10 * (1 - p); }
+    }
   }
 
   // ADS: 중앙으로 + 확대 (견착 줌)
