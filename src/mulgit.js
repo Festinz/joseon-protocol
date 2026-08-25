@@ -37,7 +37,7 @@ export function spawnMulgit(pos = [0, 0, -103]) {
     }
   });
   group.add(proc);
-  new GLTFLoader().load('assets/models/mulgit.glb?v=3', (g) => {
+  new GLTFLoader().load('assets/models/mulgit.glb?v=4', (g) => {
     proc.visible = false;
     g.scene.traverse(o => { if (o.isMesh && o.material) { o.material.emissive = new THREE.Color(0xffffff); o.material.emissiveMap = o.material.map || null; o.material.emissiveIntensity = 0.35; } });
     group.add(g.scene);

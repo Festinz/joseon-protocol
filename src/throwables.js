@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { state, now } from './state.js';
 import { rig } from './rail.js';
 import { getActors } from './enemies.js';
-import { bossActive, bossTakeUltDamage } from './boss.js';
+import { bossActive, bossTakeUltDamage, bossBodyPos } from './boss.js';
 import { mulgitTakeDamage, mulgitActive } from './mulgit.js';
 
 const GRENADE = { dmg: 45, radius: 4.2, bossDmg: 40, fuseMs: 1600, speed: 13, upBoost: 4.5, cooldownMs: 900 };
@@ -60,8 +60,9 @@ function explode(pos) {
     if (a.group.position.distanceTo(pos) < GRENADE.radius) a.onHit('hitBody', GRENADE.dmg, {});
   }
   if (bossActive()) {
-    // 보스 몸 근처 판정 (보스룸 중심 -134 부근)
-    if (pos.distanceTo(_v.set(0, pos.y, -134)) < 8) bossTakeUltDamage(GRENADE.bossDmg);
+    // 보스 몸 근처 판정 (해태는 이동한다 — 실시간 위치)
+    const bp = bossBodyPos();
+    if (bp && pos.distanceTo(_v.set(bp.x, pos.y, bp.z)) < 8) bossTakeUltDamage(GRENADE.bossDmg);
   }
   if (mulgitActive()) mulgitTakeDamage(pos, GRENADE.radius + 1.2, GRENADE.bossDmg);
 }

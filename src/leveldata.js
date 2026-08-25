@@ -111,7 +111,7 @@ export const ZONES = [
     clearReward: { item: 'tonic', count: 1 },
   },
   {
-    id: 'Z5', name: '근정전 보스룸', objective: '고붕이를 격파하라',
+    id: 'Z5', name: '근정전 보스룸', objective: '해태를 격파하라',
     fieldType: 'close', enterZ: -113, anchor: [0, 0, -120],
     boss: 'gobungi', waves: [],
   },

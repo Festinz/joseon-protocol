@@ -5,12 +5,12 @@ import { state, now } from './state.js';
 import { WEAPONS } from './config.js';
 
 const SPRITES = {
-  rifle: 'assets/vm/rifle_s.png',
-  carbine: 'assets/vm/rifle_s.png',   // 전용 아트 없음 — 소총 공유
-  ritual: 'assets/vm/rifle_s.png',
-  dagger: 'assets/vm/dagger_s.png',
-  grenade: 'assets/vm/grenade_s.png',
-  mapae: 'assets/vm/mapae_s.png',
+  rifle: 'assets/vm/rifle.png',
+  carbine: 'assets/vm/rifle.png',     // 전용 아트 없음 — 소총 공유
+  ritual: 'assets/vm/rifle.png',
+  dagger: 'assets/vm/dagger.png',
+  grenade: 'assets/vm/grenade.png',
+  mapae: 'assets/vm/mapae.png',
 };
 
 let img, wrap;
@@ -92,8 +92,12 @@ export function updateVmSprite(dt) {
   const adsX = sign * adsT * (innerWidth * 0.13);
   const adsY = adsT * 26;
   const crouchY = state.playerCrouching ? 14 : 0;
+  // 상하 조준 패럴랙스: 위를 보면 총이 내려가고 살짝 들리는 느낌 (2D 스프라이트의 3D 착시)
+  const pitch = state._pitchVal || 0;
+  const pitchY = pitch * 46;          // 위(+pitch) → 스프라이트 아래로
+  const pitchR = -pitch * 3.2 * (state.hand === 'L' ? -1 : 1);
 
   img.style.transform =
-    `translate(${bobX + ax + adsX + swayX * swayScale}px, ${bobY + ay + adsY + kickY + crouchY + swayY * swayScale}px) ` +
-    `rotate(${(kickR + ar) * (state.hand === 'L' ? -1 : 1) + swayX * swayScale * 0.05}deg) scale(${scale + adsT * 0.16})`;
+    `translate(${bobX + ax + adsX + swayX * swayScale}px, ${bobY + ay + adsY + kickY + crouchY + pitchY + swayY * swayScale}px) ` +
+    `rotate(${(kickR + ar) * (state.hand === 'L' ? -1 : 1) + pitchR + swayX * swayScale * 0.05}deg) scale(${scale + adsT * 0.16})`;
 }

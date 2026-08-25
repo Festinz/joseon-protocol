@@ -12,7 +12,8 @@
   *{box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none}
   html,body{width:100%; height:100%; overflow:hidden; background:var(--bg)}
   body{font-family:"Noto Sans KR","Malgun Gothic",system-ui,sans-serif; color:var(--ink); cursor:none}
-  #c{position:fixed; inset:0; display:block; width:100vw; height:100vh; image-rendering:pixelated}
+  #c{position:fixed; inset:0; display:block; width:100vw; height:100vh}
+  .retro #c{image-rendering:pixelated}
   .hud{position:fixed; pointer-events:none; z-index:10}
   .hidden{display:none !important}
 
@@ -34,27 +35,39 @@
   #score .pts{font-size:20px; font-weight:700}
   #score .combo{font-size:13px; color:var(--brass); font-weight:700; min-height:18px}
 
-  /* ── bottom left: hp / items ───────────── */
-  #plate-l{left:22px; bottom:20px; width:290px}
-  #hpwrap{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px}
-  #hplabel{font-size:11px; letter-spacing:.2em; color:var(--brass); margin-bottom:5px}
-  #hpbar{height:12px; background:#000a; border-radius:6px; overflow:hidden; position:relative}
-  #hpbar .ghost{position:absolute; inset:0; width:100%; background:#c96a5a; transition:width .8s ease .25s}
-  #hpbar .fill{position:absolute; inset:0; width:100%; background:linear-gradient(90deg,#7fd07f,#4f9f5f); transition:width .12s}
-  #items{display:flex; gap:8px; margin-top:8px}
+  /* ── bottom left: hp (Gemini HUD 에셋) / items ───────────── */
+  #plate-l{left:22px; bottom:20px; width:340px}
+  #hpwrap{position:relative}
+  #hpframe{width:100%; display:block; filter:drop-shadow(0 2px 10px rgba(0,0,0,.6))}
+  #hpslot{position:absolute; left:8%; top:36%; width:84%; height:25%; background:#160f0c; border-radius:5px; overflow:hidden}
+  #hpbar{position:absolute; inset:0}
+  #hpbar .ghost{position:absolute; inset:0; width:100%; background:#7a3830; transition:width .8s ease .25s}
+  #hpbar .fill{position:absolute; inset:0; width:100%; background:linear-gradient(180deg,#e0483a,#b02418 55%,#8c1c12); transition:width .12s}
+  #hptext{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; color:#f3d9a0; text-shadow:0 1px 3px #000; letter-spacing:.04em; font-variant-numeric:tabular-nums}
+  #items{display:flex; gap:8px; margin-top:6px}
   .item{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:4px 10px; font-size:12px}
   .item b{color:var(--steam)}
   .item.none{opacity:.35}
 
-  /* ── bottom right: weapon/ammo ─────────── */
-  #plate-r{right:22px; bottom:20px; text-align:right}
-  #ammo{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 14px; display:inline-block; min-width:170px}
-  #wname{font-size:12px; color:var(--brass); letter-spacing:.14em; margin-bottom:2px}
-  #ammoval{font-size:26px; font-weight:700; font-variant-numeric:tabular-nums}
-  #ammoval.empty{color:var(--danger); animation:blink .5s steps(2) infinite}
-  #reloadmsg{font-size:11px; color:var(--warn); min-height:15px}
-  #wslots{margin-top:6px; font-size:11px; color:#8f94b5; letter-spacing:.1em}
+  /* ── bottom right: 탄약 주머니 (Gemini HUD 에셋) ─────────── */
+  #plate-r{right:22px; bottom:20px; text-align:right; width:190px}
+  #ammowrap{position:relative; width:100%}
+  #pouchimg{width:100%; display:block; filter:drop-shadow(0 2px 10px rgba(0,0,0,.6))}
+  .ammochip{position:absolute; transform:translate(-50%,-50%); background:rgba(22,16,11,.92); border:1px solid #6b5a3e; border-radius:10px; padding:1px 10px; font-size:24px; font-weight:800; color:#e9cf8f; font-variant-numeric:tabular-nums; text-shadow:0 1px 3px #000}
+  #magchip{left:31%; top:71%}
+  #reschip{left:66%; top:71%; font-size:19px; color:#c9b47e}
+  #magchip.empty{color:var(--danger); animation:blink .5s steps(2) infinite}
+  #wname{position:absolute; left:50%; top:12%; transform:translateX(-50%); font-size:12px; font-weight:700; color:#e9dcb8; letter-spacing:.12em; background:rgba(22,16,11,.85); border:1px solid #6b5a3e; border-radius:8px; padding:2px 12px; white-space:nowrap}
+  #reloadmsg{font-size:11px; color:var(--warn); min-height:15px; margin-top:4px}
+  #wslots{margin-top:2px; font-size:11px; color:#8f94b5; letter-spacing:.1em}
   #wslots b{color:var(--ink)}
+
+  /* ── boss hp bar (프레임 에셋 재사용) ── */
+  #bossbar{top:62px; left:50%; transform:translateX(-50%); width:min(520px,46vw)}
+  #bossbar img{width:100%; display:block; filter:hue-rotate(150deg) saturate(.85) drop-shadow(0 2px 12px rgba(0,0,0,.7))}
+  #bossslot{position:absolute; left:8%; top:36%; width:84%; height:25%; background:#0c1416; border-radius:5px; overflow:hidden}
+  #bossslot i{display:block; height:100%; width:100%; background:linear-gradient(180deg,#7fe8de,#2e9a90 55%,#1d6e66); transition:width .25s}
+  #bossname{position:absolute; left:50%; top:4%; transform:translateX(-50%); font-size:14px; font-weight:800; letter-spacing:.22em; color:#bfeee8; background:rgba(8,12,14,.92); border:1px solid #3d5a56; border-radius:8px; padding:3px 22px; white-space:nowrap}
 
   /* ── peek badge ────────────────────────── */
   #peek{left:22px; bottom:118px; display:flex; align-items:center; gap:9px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 13px; font-size:13px; font-weight:700}
@@ -63,14 +76,19 @@
   #peek.unfav{border-color:var(--warn)} #peek.unfav .arrow,#peek.unfav .lb{color:var(--warn)}
   #peek.neutral .arrow,#peek.neutral .lb{color:#9aa0b8}
 
-  /* ── ult gauge ─────────────────────────── */
-  #ult{left:50%; bottom:20px; transform:translateX(-50%); width:300px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px}
-  #ultrow{display:flex; justify-content:space-between; font-size:11px; letter-spacing:.14em; color:var(--brass); margin-bottom:5px}
-  #ultbar{height:9px; background:#000a; border-radius:5px; overflow:hidden}
-  #ultbar i{display:block; height:100%; width:0%; background:linear-gradient(90deg,#b08d3e,var(--brass)); transition:width .2s}
-  #ult.ready #ultbar i{background:linear-gradient(90deg,var(--brass),#ffe9ad); animation:pulse 1s ease-in-out infinite}
-  #ult.locked{opacity:.65}
-  #ultlock{color:#9aa0b8}
+  /* ── ult gauge (Gemini 게이지 에셋) ─────────────────────── */
+  #ult{left:50%; bottom:12px; transform:translateX(-50%); width:132px}
+  #ultimg{width:100%; display:block; filter:drop-shadow(0 2px 12px rgba(0,0,0,.65))}
+  #ult.ready #ultimg{filter:drop-shadow(0 0 16px rgba(255,170,60,.85)); animation:pulse 1s ease-in-out infinite}
+  #ultneedle{position:absolute; left:46%; top:11.5%; width:3.2%; height:24.5%; transform-origin:50% 96%;
+             transform:translateX(-50%) rotate(-135deg); transition:transform .35s cubic-bezier(.3,1.4,.5,1); pointer-events:none}
+  #ultneedle i{position:absolute; left:30%; right:30%; top:0; bottom:0; border-radius:45%;
+               background:linear-gradient(180deg,#2e6e5e 0%,#c9814a 30%,#e8b25e 100%);
+               box-shadow:0 0 6px rgba(255,180,80,.9), 0 0 2px #000}
+  #ultplaque{position:absolute; left:19%; top:87.4%; width:63%; height:5.6%; background:#241a12; border-radius:4px; overflow:hidden}
+  #ultbar{position:absolute; inset:1px}
+  #ultbar i{display:block; height:100%; width:0%; background:linear-gradient(90deg,#b06a1e,#ffb347); transition:width .2s}
+  #ultlock{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:#ffe9c0; text-shadow:0 1px 2px #000}
 
   /* ── recap / banner / warning ──────────── */
   #recap{left:50%; bottom:96px; transform:translateX(-50%); font-size:14px; color:var(--warn); text-shadow:0 1px 6px #000; font-weight:500}
@@ -88,19 +106,25 @@
 
   /* ── 뷰모델 스프라이트 ── */
   #vmwrap{right:0; bottom:0; width:52vw; max-width:880px; z-index:8; overflow:hidden}
-  #vmimg{width:100%; display:block; image-rendering:pixelated; transform-origin:70% 100%;
+  #vmimg{width:100%; display:block; transform-origin:70% 100%;
          filter:brightness(.82) saturate(.92) drop-shadow(0 0 18px rgba(0,0,0,.6)); transition:none}
   body.hand-L #vmwrap{right:auto; left:0}
   body.hand-L #vmimg{transform-origin:30% 100%; scale:-1 1}
 
   /* ── 무기 휠 ── */
   #wheel{inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:70; background:rgba(6,8,20,.55)}
-  #wheel img{width:min(46vh,420px); image-rendering:pixelated; filter:drop-shadow(0 0 30px #000)}
+  #wheelbox{position:relative; width:min(52vh,480px)}
+  #wheelbox img{width:100%; display:block; filter:drop-shadow(0 0 30px #000)}
+  #wheelhl{position:absolute; inset:5%; border-radius:50%; pointer-events:none; mix-blend-mode:screen;
+           background:conic-gradient(from calc(var(--a,0deg) - 30deg), rgba(255,180,70,.5) 0deg 60deg, transparent 60deg 360deg)}
+  #wheel.flash{background:transparent; pointer-events:none}
+  #wheel.flash #wheelbox{width:min(30vh,280px)}
+  #wheel.flash .wheelhint{font-size:13px}
   .wheelhint{margin-top:14px; font-size:15px; font-weight:700; letter-spacing:.1em; color:var(--ink); text-shadow:0 1px 6px #000}
 
   /* ── 궁극기 컷씬 ── */
   #cutscene{inset:0; z-index:65; display:flex; align-items:center; justify-content:center; background:#000}
-  #cutscene img{width:100%; height:100%; object-fit:cover; image-rendering:pixelated; animation:cutzoom 2.6s ease-out forwards}
+  #cutscene img{width:100%; height:100%; object-fit:cover; animation:cutzoom 2.6s ease-out forwards}
   @keyframes cutzoom{from{transform:scale(1); filter:brightness(.7)} 30%{filter:brightness(1.15)} to{transform:scale(1.08); filter:brightness(1)}}
 
   /* ── 암살 프롬프트 ── */
@@ -152,13 +176,16 @@
 
 <!-- 1인칭 뷰모델 스프라이트 (Gemini 아트 — 픽셀 정합용 저해상판을 CSS 로 업스케일) -->
 <div id="vmwrap" class="hud">
-  <img id="vmimg" src="assets/vm/rifle_s.png" alt="">
+  <img id="vmimg" src="assets/vm/rifle.png" alt="">
 </div>
 
-<!-- 무기 선택 휠 (Space 홀드) -->
+<!-- 무기 선택 휠 (Space 탭 = 전환 / 홀드 = 휠) -->
 <div id="wheel" class="hud hidden">
-  <img src="assets/ui/wheel_s.png" alt="">
-  <div class="wheelhint">1 영천 소총 · 2 집경 카빈 · 3 천마도 <span id="wh3lock">🔒</span></div>
+  <div id="wheelbox">
+    <img src="assets/ui/wheel.png" alt="">
+    <div id="wheelhl"></div>
+  </div>
+  <div class="wheelhint" id="wheelname">Space 탭 — 무기 전환 · 1/2/3 직접 선택</div>
 </div>
 
 <!-- 궁극기 컷씬 (비거 융단폭격) -->
@@ -190,27 +217,41 @@
 <div id="banner" class="hud"></div>
 <div id="recap" class="hud"></div>
 <div id="peek" class="hud neutral"><span class="arrow">▲</span><span class="lb">중립 엄폐</span></div>
+<div id="bossbar" class="hud hidden">
+  <img src="assets/ui/hud_hp.png" alt="">
+  <div id="bossslot"><i></i></div>
+  <div id="bossname">해 태</div>
+</div>
 <div id="plate-l" class="hud">
   <div id="hpwrap">
-    <div id="hplabel">체 력</div>
-    <div id="hpbar"><div class="ghost"></div><div class="fill"></div></div>
+    <img id="hpframe" src="assets/ui/hud_hp.png" alt="">
+    <div id="hpslot">
+      <div id="hpbar"><div class="ghost"></div><div class="fill"></div></div>
+      <div id="hptext">100/100</div>
+    </div>
   </div>
   <div id="items">
-    <div class="item" id="it-tonic">탕약 <b>×2</b> <span style="opacity:.6">F</span></div>
-    <div class="item" id="it-smoke">연막 <b>×0</b> <span style="opacity:.6">C</span></div>
+    <div class="item" id="it-tonic">탕약 <b>×2</b> <span style="opacity:.6">T</span></div>
+    <div class="item" id="it-smoke">연막 <b>×0</b> <span style="opacity:.6">G</span></div>
   </div>
 </div>
 <div id="plate-r" class="hud">
-  <div id="ammo">
+  <div id="ammowrap">
+    <img id="pouchimg" src="assets/ui/hud_pouch.png" alt="">
     <div id="wname">영천 장총</div>
-    <div id="ammoval">6/60</div>
-    <div id="reloadmsg"></div>
-    <div id="wslots"><b>1</b> 영천 · <span id="ws2">2 집경</span> · <span id="ws3">3 천마도</span></div>
+    <div class="ammochip" id="magchip"><span id="magval">6</span></div>
+    <div class="ammochip" id="reschip"><span id="resval">60</span></div>
   </div>
+  <div id="reloadmsg"></div>
+  <div id="wslots"><b>1</b> 영천 · <span id="ws2">2 집경</span> · <span id="ws3">3 천마도</span> · <b>Space</b> 전환</div>
 </div>
-<div id="ult" class="hud locked">
-  <div id="ultrow"><span>궁극기 — 증기 폭격</span><span id="ultlock">🔒 개활지 전용</span></div>
-  <div id="ultbar"><i></i></div>
+<div id="ult" class="hud">
+  <img id="ultimg" src="assets/ui/hud_ult.png" alt="">
+  <div id="ultneedle"><i></i></div>
+  <div id="ultplaque">
+    <div id="ultbar"><i></i></div>
+    <span id="ultlock">0%</span>
+  </div>
 </div>
 
 <!-- Overlays -->
@@ -276,7 +317,7 @@
   <div class="box">
     <h2>휴 식</h2>
     <p id="pauseinfo">견착: — (변경 불가)</p>
-    <p style="margin-top:10px">Esc — 계속 &nbsp;·&nbsp; M — 음소거</p>
+    <p style="margin-top:10px">화면 클릭 — 계속 &nbsp;·&nbsp; M — 음소거</p>
   </div>
 </div>
 

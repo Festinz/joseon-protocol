@@ -114,6 +114,6 @@ export const DODGE = { hitRadius: 0.85, crouchBonus: 0.25 };
 
 // ── 성능 / 레트로 렌더 ──
 export const PERF = {
-  maxPixelRatio: 1.5, cameraFar: 200, fogDensity: 0.011,
-  retroHeight: 432,   // 픽셀화: 내부 렌더 세로 해상도 — 270 은 과함, 432 = 레트로+판독성 (?retroh= 조절, ?retro=0 끔)
+  maxPixelRatio: 2, cameraFar: 200, fogDensity: 0.0062,
+  retroHeight: 432,   // ?retro=1 일 때만 사용 — 기본은 네이티브 고해상도
 };

@@ -25,13 +25,14 @@ window.addEventListener('error', (e) => showLoadError(e.message));
 
 // ── 렌더러: 레트로 저해상도 + CSS 픽셀 업스케일 ─────────────────────
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.autoClear = false;
 renderer.autoClearColor = false;               // r180: 2-패스에서 배경이 1패스를 덮는 것 방지
 renderer.setClearColor(0x0a1220, 1);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.25;
-const RETRO = params.get('retro') !== '0';
+renderer.toneMappingExposure = 1.45;
+const RETRO = params.get('retro') === '1';   // 기본 고해상도 — ?retro=1 로 픽셀 룩
+document.body.classList.toggle('retro', RETRO);
 function sizeRenderer() {
   if (RETRO) {
     const h = Number(params.get('retroh')) || PERF.retroHeight;
@@ -53,8 +54,8 @@ scene.fog = new THREE.FogExp2(0x0a1220, PERF.fogDensity);
 const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.05, PERF.cameraFar);
 
 // 조명 — 밤의 경복궁 (달빛 + 등롱)
-const hemi = new THREE.HemisphereLight(0x3a4a7a, 0x141008, 2.1);
-const moon = new THREE.DirectionalLight(0xa8c4ff, 1.6); moon.position.set(-30, 60, 10);
+const hemi = new THREE.HemisphereLight(0x46577f, 0x1c1710, 2.7);
+const moon = new THREE.DirectionalLight(0xa8c4ff, 2.2); moon.position.set(-30, 60, 10);
 const bossGlow = new THREE.PointLight(0x9fd8d4, 2.6, 40); bossGlow.position.set(0, 6, -132);
 for (const l of [hemi, moon, bossGlow]) { l.layers.enable(1); scene.add(l); }
 

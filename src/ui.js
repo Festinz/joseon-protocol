@@ -8,7 +8,7 @@ import { applyShoulder } from './rail.js';
 import { unlockAudio } from './audio.js';
 
 const $ = id => document.getElementById(id);
-let bannerTimer = 0, recapTimer = 0, dangerUntil = 0;
+let bannerTimer = 0, recapTimer = 0, dangerUntil = 0, wheelFlashTimer = 0, bossHideTimer = 0;
 
 export function initUI({ onRunStart, onRestart }) {
   // ── 타이틀 → 의식 ──
@@ -100,14 +100,37 @@ export function initUI({ onRunStart, onRestart }) {
   state.on('shotBlockedByShield', () => showRecap('방패에 막혔다 — 머리를 노려라'));
   state.on('smokeDeployed', () => showBanner('연막 전개'));
   state.on('recapLine', showRecap);
-  state.on('wheelShow', (held) => $('wheel').classList.toggle('hidden', !held));
+  state.on('wheelShow', (held) => {
+    clearTimeout(wheelFlashTimer);
+    $('wheel').classList.remove('flash');
+    $('wheel').classList.toggle('hidden', !held);
+    if (held) renderWheelHl();
+  });
+  state.on('wheelFlash', () => {  // Space 탭 전환 피드백 — 일시정지 없이 짧게 표시
+    if (state.wheelOpen) return;
+    renderWheelHl();
+    const w = $('wheel'); w.classList.add('flash'); w.classList.remove('hidden');
+    clearTimeout(wheelFlashTimer);
+    wheelFlashTimer = setTimeout(() => { w.classList.add('hidden'); w.classList.remove('flash'); }, 700);
+  });
   state.on('assassinPrompt', (on) => $('assassin').classList.toggle('hidden', !on));
   state.on('ultCastStart', () => { // 비거 융단폭격 컷씬
     const c = $('cutscene'); c.classList.remove('hidden');
     const img = c.querySelector('img'); img.style.animation = 'none'; void img.offsetWidth; img.style.animation = '';
     setTimeout(() => c.classList.add('hidden'), 2600);
   });
-  state.on('mulgitHp', (r) => { $('objtext').textContent = `멀기트 — ${Math.max(0, Math.round(r * 100))}%`; });
+  // ── 보스 HP 바 (프레임 에셋) ──
+  const showBossBar = (name, r) => {
+    clearTimeout(bossHideTimer);
+    $('bossname').textContent = name;
+    $('bossbar').classList.remove('hidden');
+    document.querySelector('#bossslot i').style.width = Math.max(0, r * 100) + '%';
+    if (r <= 0) bossHideTimer = setTimeout(() => $('bossbar').classList.add('hidden'), 1200);
+  };
+  state.on('mulgitHp', (r) => showBossBar('멀 기 트', r));
+  state.on('bossStarted', () => showBossBar('해 태', 1));
+  state.on('bossCoreHit', (r) => showBossBar('해 태', Math.max(0, r)));
+  state.on('bossDefeated', () => showBossBar('해 태', 0));
   state.on('gateOpened', () => {});
   state.on('showEnding', showEnding);
 
@@ -120,15 +143,22 @@ function renderHp() {
   const pct = Math.max(0, state.player.hp / PLAYER.hp * 100);
   document.querySelector('#hpbar .fill').style.width = pct + '%';
   setTimeout(() => { document.querySelector('#hpbar .ghost').style.width = pct + '%'; }, 250);
+  $('hptext').textContent = `${Math.max(0, Math.round(state.player.hp))}/${PLAYER.hp}`;
 }
 function renderAmmo() {
   const w = state.weapons[state.currentWeapon]; const cfg = WEAPONS[state.currentWeapon];
   $('wname').textContent = cfg.name;
-  const el = $('ammoval');
-  el.textContent = `${w.mag}/${w.reserve}`;                 // PPTX {0}/{1} 표기
-  el.classList.toggle('empty', w.mag === 0);
+  $('magval').textContent = w.mag;                          // PPTX {0}/{1} 표기 — 주머니 좌/우
+  $('resval').textContent = w.reserve;
+  $('magchip').classList.toggle('empty', w.mag === 0);
   $('reloadmsg').textContent = w.reloading ? '재장전…' : (w.mag === 0 && w.reserve === 0 ? '탄약 소진' : (w.mag === 0 ? '재장전 필요 — 엄폐하라' : ''));
   renderSlots();
+  renderWheelHl();
+}
+const WHEEL_ANGLE = { rifle: 0, carbine: 180, ritual: 240 }; // 휠 아트 섹터: 승자총통/신기전/비격진천뢰
+function renderWheelHl() {
+  $('wheelhl').style.setProperty('--a', (WHEEL_ANGLE[state.currentWeapon] || 0) + 'deg');
+  $('wheelname').textContent = `${WEAPONS[state.currentWeapon].name} — Space 탭 전환 · 홀드 휠 · 1/2/3 선택`;
 }
 function renderSlots() {
   $('ws2').style.opacity = state.unlockedWeapons.includes('carbine') ? 1 : 0.3;
@@ -141,12 +171,13 @@ function renderItems() {
   $('it-smoke').classList.toggle('none', state.items.smoke === 0 && state.items.grenade === 0);
 }
 function renderUlt() {
-  const open = state.node?.fieldType === 'open';
   const el = $('ult');
-  el.classList.toggle('locked', !open);
-  el.classList.toggle('ready', open && state.ult >= 100);
-  $('ultlock').textContent = open ? (state.ult >= 100 ? 'V — 폭격 지원' : Math.round(state.ult) + '%') : '🔒 개활지 전용';
+  el.classList.toggle('ready', state.ult >= 100);
+  $('ultlock').textContent = state.ult >= 100 ? 'Q — 폭격' : Math.round(state.ult) + '%';
   document.querySelector('#ultbar i').style.width = state.ult + '%';
+  // 실물 게이지 바늘: 0%=좌하(-135°) → 100%=우하(+135°), 스프링 이징
+  $('ultneedle').style.transform =
+    `translateX(-50%) rotate(${-135 + 270 * Math.min(100, Math.max(0, state.ult)) / 100}deg)`;
 }
 function renderScore() {
   document.querySelector('#score .pts').textContent = state.score.toLocaleString();

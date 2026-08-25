@@ -83,6 +83,7 @@ export function updateRail(dt) {
   yaw -= md.x * 0.0023 * sens;
   pitch -= md.y * 0.0021 * sens;
   state._lookDX = md.x; state._lookDY = md.y;   // 뷰모델 룩-스웨이용 (vmsprite)
+  state._pitchVal = pitch;                       // 상하 조준 패럴랙스용
   pitch = Math.max(-1.35, Math.min(1.35, pitch));
   rig.dolly.rotation.y = yaw;
   rig.camera.rotation.x = pitch;

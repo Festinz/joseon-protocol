@@ -10,7 +10,7 @@ import { spawnWave, aliveCount, clearAll, getActors, resetReliefFlag } from './e
 import { clearDangerShots, damagePlayer } from './combat.js';
 import { refillAmmo } from './weapons.js';
 import { initBossFight, updateBoss, bossActive, bossTakeUltDamage } from './boss.js';
-import { spawnMulgit, updateMulgit, mulgitActive, resetMulgit } from './mulgit.js';
+import { spawnMulgit, updateMulgit, mulgitActive, resetMulgit, mulgitTakeDamage } from './mulgit.js';
 
 const zoneState = ZONES.map(() => ({ started: false, cleared: false, waveIdx: 0, waveActive: false, waveStartAt: 0 }));
 let deadAt = 0;
@@ -66,7 +66,7 @@ function startWave(i, w) {
   const zone = ZONES[i]; const zs = zoneState[i];
   if (state.player.state === 'DEAD') return;
   zs.waveIdx = w; zs.waveActive = true; zs.waveStartAt = now();
-  if (zone.ultShowcase === w) { state.ult = ULT.max; state.emit('ultChanged'); state.emit('bannerShow', '궁극기 준비 완료 — V'); }
+  if (zone.ultShowcase === w) { state.ult = ULT.max; state.emit('ultChanged'); state.emit('bannerShow', '궁극기 준비 완료 — Q'); }
   spawnWave(zone, zone.waves[w]);
 }
 
@@ -136,7 +136,6 @@ export function updateFlow(dt) {
 // ── 궁극기: 증기 폭격 (open 존 전용 — PPTX 규칙 유지) ──
 function tryUlt() {
   if (state.ult < ULT.max || state.ultCasting) return;
-  if (state.node?.fieldType !== 'open') { state.emit('ultLockedTry'); return; }
   state.ultCasting = true; state.ult = 0; state.emit('ultChanged');
   state.player.invulnUntil = now() + ULT.castMs + 500;
   state.emit('ultCastStart');
@@ -145,6 +144,7 @@ function tryUlt() {
   setTimeout(() => {
     for (const a of [...getActors()]) if (a.alive) a.onHit(a.headOnly ? 'hitHead' : 'hitBody', 9999, {});
     if (bossActive()) bossTakeUltDamage(ULT.bossDmg);
+    if (mulgitActive()) mulgitTakeDamage(ULT.bossDmg, false);
     clearDangerShots();
     state.ultCasting = false;
     state.emit('ultCastEnd');

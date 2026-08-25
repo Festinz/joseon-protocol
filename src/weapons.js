@@ -42,6 +42,13 @@ export function initWeapons3D() {
 
   state.on('handChosen', applyHandToVM);
   state.on('switchWeapon', trySwitch);
+  state.on('cycleWeapon', () => {   // Space 탭: 해금된 무기 순환
+    const order = ['rifle', 'carbine', 'ritual'].filter(k => state.unlockedWeapons.includes(k));
+    if (order.length < 2) { state.emit('wheelFlash'); return; }
+    const next = order[(order.indexOf(state.currentWeapon) + 1) % order.length];
+    trySwitch(next);
+    state.emit('wheelFlash');
+  });
   state.on('reloadPressed', manualReload);
   state.on('fullyCovered', () => { coveredSince = now(); });
   state.on('transitStart', fullReloadAll);

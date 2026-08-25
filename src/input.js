@@ -5,6 +5,7 @@ import { state } from './state.js';
 export const keys = { w: false, a: false, s: false, d: false, shift: false, ctrl: false, z: false, x: false };
 let lmbHeld = false, rmbHeld = false;
 let mdx = 0, mdy = 0;
+let spaceTimer = 0;
 const canvas = () => document.getElementById('c');
 const xhair = () => document.getElementById('xhair');
 
@@ -41,6 +42,9 @@ export function initInput() {
       lmbHeld = false;
       Object.keys(keys).forEach(k => keys[k] = false);
       if (state.phase === 'play' && !state.paused && !state._noAutoPause) state.emit('togglePause');
+    } else {
+      // 락 성공 → 일시정지 자동 해제 (클릭 한 번으로 복귀)
+      if (state.phase === 'play' && state.paused && !state.wheelOpen) state.emit('togglePause');
     }
   });
 
@@ -75,7 +79,10 @@ export function initInput() {
       case 'KeyF': state.emit('grenadePressed'); break;         // F = 수류탄
       case 'KeyE': state.emit('assassinatePressed'); break;     // E = 암살/상호작용
       case 'KeyQ': state.emit('ultPressed'); break;             // Q = 궁극기
-      case 'Space': state.emit('wheelHold', true); e.preventDefault(); break;
+      case 'Space': // 탭 = 다음 무기 전환, 홀드(240ms+) = 무기 휠
+        e.preventDefault();
+        spaceTimer = setTimeout(() => { spaceTimer = 0; state.emit('wheelHold', true); }, 240);
+        break;
       case 'Digit1': state.emit('switchWeapon', 'rifle'); break;
       case 'Digit2': state.emit('switchWeapon', 'carbine'); break;
       case 'Digit3': state.emit('switchWeapon', 'ritual'); break;
@@ -91,7 +98,10 @@ export function initInput() {
       case 'ControlLeft': keys.ctrl = false; break;
       case 'KeyZ': keys.z = false; break;
       case 'KeyX': keys.x = false; break;
-      case 'Space': state.emit('wheelHold', false); break;
+      case 'Space':
+        if (spaceTimer) { clearTimeout(spaceTimer); spaceTimer = 0; state.emit('cycleWeapon'); }
+        else state.emit('wheelHold', false);
+        break;
     }
   });
 
