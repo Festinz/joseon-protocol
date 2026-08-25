@@ -596,7 +596,7 @@ export function buildEnvironment() {
   // ── 경복궁 실 지오메트리 (Blender 헤드리스 산출) ─────────────────
   // 광화문 문루·근정문·근정전·행각·품계석. 로드되면 해당 자리의 빌보드·절차 게이트를 끈다.
   // 실패해도 기존 빌보드 체인이 그대로 살아 있으므로 게임은 항상 완주 가능.
-  new GLTFLoader().load('assets/models/palace.glb?v=3', (g) => {
+  new GLTFLoader().load('assets/models/palace.glb?v=4', (g) => {
     window.__palaceOK = true;
     const eodoMat = new THREE.MeshBasicMaterial({ color: 0x171a24 });   // 어도 — 균일하게 어두운 박석 띠
     g.scene.traverse(o => {

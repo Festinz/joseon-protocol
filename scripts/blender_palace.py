@@ -187,9 +187,7 @@ arch_portal('gw_archL', -6.2, GY, 2.9, 3.6, 5.2, 3.0, False) # 협문 — 벽감
 arch_portal('gw_archR',  6.2, GY, 2.9, 3.6, 5.2, 3.0, False)
 # 여장(석축 위 담)
 box('gw_par', 0, GY + 1.2, 5.65, 33.6, 0.5, 0.9, M_STONE2)
-# 석축 장대석 줄눈 — 수평 3줄 (거대한 벽이 '쌓은 돌' 로 읽히게)
-for i, zz in enumerate((1.4, 2.8, 4.2)):
-    box(f'gw_joint{i}', 0, GY - 1.56, zz, 35.0, 0.04, 0.06, M_RIDGE)
+# (석축 줄눈은 제거 — 면에 밀착하지 못해 공중에 뜬 줄무늬로 보였다)
 # 현판 — 문루 1층 처마 밑 중앙 (검은 바탕 + 황동 테)
 box('gw_plaque_bg', 0, GY - 3.2, 8.35, 2.6, 0.12, 1.15, M_RIDGE)
 box('gw_plaque_rim', 0, GY - 3.14, 8.35, 2.78, 0.06, 1.3, M_BRASS)
