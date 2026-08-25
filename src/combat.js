@@ -75,12 +75,13 @@ export function damagePlayer(amount, cause) {
 // ── 플레이어 사격 ─────────────────────────────────────────────────
 let lastAimBlocked = false;
 
-export function tryFire() {
+export function tryFire(bowPower = null) {
   if (state.phase !== 'play' || state.paused) return;
   if (!canFire()) return;
 
   const wcfg = WEAPONS[state.currentWeapon];
   if (wcfg.melee) return meleeStrike(wcfg);   // 환도: 탄약 미소모 근접 베기
+  if (wcfg.drawMs && bowPower === null) return;   // 활은 홀드-릴리즈로만 발사된다
 
   consumeShot();
   state.shotsFired += 1;
@@ -121,7 +122,8 @@ export function tryFire() {
     bumpCombo();
     const blocked = victim.headOnly && part === 'hitBody';   // 방패: 15% 관통 (enemies 에서 감쇠)
     const weak = part !== 'hitBody';
-    const dmg = cfg.dmg * (weak ? cfg.weakMult : 1) * state.comboMult;
+    const power = bowPower ?? 1;
+    const dmg = cfg.dmg * (weak ? cfg.weakMult : 1) * state.comboMult * power;
     victim.onHit(part, dmg, { weak, weapon: state.currentWeapon, silent: cfg.silent });
     state.emit('shotHit', { point, weak, part });
     if (blocked) state.emit('shotBlockedByShield', { point });
@@ -141,6 +143,7 @@ function shotgunBlast(cfg) {
   const half = cfg.spreadDeg * Math.PI / 180;
   let anyHit = false;
   const dealt = new Map();          // actor -> {dmg, part, point}
+  const pelletHits = [];            // 시각용 — 펠릿 하나하나가 어디에 박혔는가
   for (let i = 0; i < cfg.pellets; i++) {
     // 원형 균등 분포 (√r 로 중심 쏠림 방지)
     const ang = Math.random() * Math.PI * 2;
@@ -149,7 +152,12 @@ function shotgunBlast(cfg) {
     raycaster.far = 200;
     const targets = hittables.filter(h => h.userData.actor?.alive);
     const hits = raycaster.intersectObjects(targets, false);
-    if (!hits.length) continue;
+    if (!hits.length) {
+      // 빗나간 펠릿은 벽·바닥에 박힌다 — 산탄감의 절반은 이 흩뿌려진 착탄이다
+      const wh = raycaster.intersectObjects(blockers, false);
+      pelletHits.push({ point: wh.length ? wh[0].point.clone() : raycaster.ray.at(30, new THREE.Vector3()), kind: 'world' });
+      continue;
+    }
     const h = hits[0];
     const a = h.object.userData.actor;
     const part = h.object.name;
@@ -165,8 +173,11 @@ function shotgunBlast(cfg) {
     if (weak) { cur.part = part; cur.weak = true; }
     cur.point = h.point;
     dealt.set(a, cur);
+    pelletHits.push({ point: h.point.clone(), kind: 'flesh' });
     anyHit = true;
   }
+  muzzleWorld(_v3);
+  state.emit('shotgunPellets', { from: _v3.clone(), hits: pelletHits });
   if (anyHit) {
     state.shotsHit += 1;
     bumpCombo();
@@ -320,8 +331,8 @@ function addUlt(n) {
 let lastHoldFire = 0;
 
 export function updateCombat(dt) {
-  // 홀드 연사 (fireMs 간격)
-  if (isFireHeld() && now() - lastHoldFire > WEAPONS[state.currentWeapon].fireMs) {
+  // 홀드 연사 (fireMs 간격) — 활은 홀드가 '당김'이므로 제외
+  if (isFireHeld() && !WEAPONS[state.currentWeapon].drawMs && now() - lastHoldFire > WEAPONS[state.currentWeapon].fireMs) {
     lastHoldFire = now(); tryFire();
   }
 
@@ -349,3 +360,24 @@ export function updateCombat(dt) {
 }
 
 state.on('firePressed', () => { lastHoldFire = now(); tryFire(); });
+
+// ── 활: 좌클릭 홀드로 당기고, 놓아서 쏜다 ──
+// 당김 시간 → 위력 minPower..1. 최소 당김(minDrawMs) 미만이면 발사 취소 (화살 미소모).
+let bowDrawStart = 0;
+state.on('bowDrawStart', () => {
+  if (state.phase !== 'play' || state.paused || !canFire()) return;
+  bowDrawStart = now();
+  state.bowDraw = true;
+  state.emit('bowDrawBegin');
+});
+state.on('bowRelease', () => {
+  if (!state.bowDraw) return;
+  state.bowDraw = false;
+  const cfg = WEAPONS[state.currentWeapon];
+  const held = now() - bowDrawStart;
+  if (!cfg?.drawMs || held < cfg.minDrawMs) { state.emit('bowCancel'); return; }   // 짧은 탭 = 취소
+  const power = cfg.minPower + (1 - cfg.minPower) * Math.min(1, held / cfg.drawMs);
+  state.emit('bowShot', power);
+  tryFire(power);
+});
+state.on('switchWeapon', () => { if (state.bowDraw) { state.bowDraw = false; state.emit('bowCancel'); } });

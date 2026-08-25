@@ -32,6 +32,7 @@ export function initVmSprite() {
 
   state.on('handChosen', (h) => document.body.classList.toggle('hand-L', h === 'L'));
   state.on('weaponChanged', refresh);
+  state.on('bowShot', () => { kickY = 18; kickR = -6; });   // 릴리즈 스냅 — 활이 앞으로 튕긴다
   state.on('shotFired', () => {
     const k = WEAPONS[state.currentWeapon];
     kickY = 26 * (k?.kick ? k.kick / 0.045 : 1); kickR = 3.5 * (k?.kick ? k.kick / 0.045 : 1);
@@ -164,21 +165,27 @@ export function updateVmSprite(dt) {
     }
   }
 
-  // ── 활 전용 자세 보정 ──
-  // bow.png(1100×638)는 활채가 화면을 가로질러 크로스헤어를 가렸다 → 축소 + 우하단으로 내림.
-  // 당김(drawT): 활을 몸쪽으로 끌며 살짝 세운다 + 팽팽한 미세 떨림 — "줌" 대신 이것이 조준感.
+  // ── 무기별 파지 자세 보정 ──
+  // 아트마다 구도가 달라 공통 배치로는 안 맞는다. 활: 세워 들기 / 산탄총: 낮춰 들기.
   let wscale = 1, wx = 0, wy = 0, wr = 0;
   if (wcfg.drawMs) {
-    // 활은 '세워 든' 자세가 기본 — 원본 아트가 수평으로 누워 있어 좌·우견착 모두
-    // 활채가 바닥으로 처져 보였다. -26° 로 일으켜 상단 림이 크로스헤어 쪽을 향하게 한다.
+    // 활 — 원본이 수평 구도라 -26° 로 일으켜 상단 림이 크로스헤어 쪽을 향하게
     wscale = 0.78;
     wr = -26;
     wx = innerWidth * 0.07; wy = innerHeight * 0.02;
     const tremor = drawT * Math.sin(t * 0.045) * 1.6;           // 팽팽함 — 고주파 저진폭
+    // 당김: 활을 몸쪽으로 끌며 더 세운다 — 이것이 "조준" 이다
     wx += drawT * (-innerWidth * 0.03) + tremor;
     wy += drawT * (innerHeight * 0.008) + tremor * 0.6;
     wr += drawT * -6;
     wscale += drawT * 0.10;
+    // 풀차지 팝 — 다 당겨진 순간 살짝 부풀며 "지금 쏴라"
+    if (drawT > 0.96) wscale += 0.03 * Math.sin(t * 0.02);
+  } else if (wcfg.pellets) {
+    // 산탄총 — 총구가 화면 중앙까지 치솟아 시야를 갈랐다 → 축소 + 우하단 + 살짝 눕힘
+    wscale = 0.82;
+    wx = innerWidth * 0.05; wy = innerHeight * 0.055;
+    wr = 7;
   }
 
   // ADS "견착": 총을 들어 올려 눈에 가져다 댄다 (배그 문법) — 중앙+위로 이동·확대·수평 정렬,

@@ -28,6 +28,9 @@ let boomLight = null, boomLightT = -1; // 수류탄 폭발 플래시 (별도 1�
 const gunTracers = []; // 적 연출탄 스트릭 풀
 const rings = [];      // 쇼크웨이브
 const arrows = [];     // 활 화살 (시각 전용 — 판정은 히트스캔이 이미 끝났다)
+// 샷건 펠릿 스트릭 — LineSegments 1개를 재사용, 발사 순간 총구→각 착탄점 선을 60ms 만 보여준다
+let pelletLines = null, pelletUntil = 0;
+const PELLET_MAX = 12;
 const arrowPool = [];
 const ARROW_MS = 90;   // 60m 를 90ms — 빠르되 눈으로 좇을 수 있는 속도
 function makeArrow() {
@@ -76,6 +79,31 @@ export function initVfx(sc) {
   scene.add(points);
   pLife.fill(0);
 
+  {
+    const pg = new THREE.BufferGeometry();
+    pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(PELLET_MAX * 6), 3));
+    pelletLines = new THREE.LineSegments(pg, new THREE.LineBasicMaterial({
+      color: 0xffd9a0, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+    pelletLines.visible = false; pelletLines.frustumCulled = false;
+    scene.add(pelletLines);
+  }
+  state.on('shotgunPellets', ({ from, hits }) => {
+    const pos = pelletLines.geometry.attributes.position;
+    const n = Math.min(hits.length, PELLET_MAX);
+    for (let i = 0; i < n; i++) {
+      pos.setXYZ(i * 2, from.x, from.y, from.z);
+      pos.setXYZ(i * 2 + 1, hits[i].point.x, hits[i].point.y, hits[i].point.z);
+    }
+    for (let i = n; i < PELLET_MAX; i++) { pos.setXYZ(i * 2, 0, -99, 0); pos.setXYZ(i * 2 + 1, 0, -99, 0); }
+    pos.needsUpdate = true;
+    pelletLines.visible = true;
+    pelletUntil = now() + 60;
+    // 착탄 스파크 — 살(flesh)은 붉게 살짝, 벽·바닥(world)은 돌튐 스파크. 흩뿌려진 착탄이 곧 산탄감.
+    for (const h of hits) {
+      if (h.kind === 'world') burst(h.point, 4, 0xffc070, 1.6, 240, 0.14);
+      else burst(h.point, 3, 0xff6a50, 1.2, 200, 0.16);
+    }
+  });
   state.on('arrowShot', ({ from, to }) => {
     const m = makeArrow();
     m.position.copy(from);
@@ -217,6 +245,7 @@ function spawnGunTracer(from) {
 }
 
 export function updateVfx(dt) {
+  if (pelletLines && pelletLines.visible && now() > pelletUntil) pelletLines.visible = false;
   // 화살 비행 (선형 — 60m 급이라 낙차 생략)
   for (let i = arrows.length - 1; i >= 0; i--) {
     const a = arrows[i];

@@ -32,6 +32,9 @@ export function initAudio() {
     setTimeout(() => sfxBolt(), ms * 0.88);
   });
   state.on('meleeSwing', () => sfxWhoosh());
+  state.on('bowDrawBegin', () => sfxTick());           // 시위 크리크
+  state.on('bowShot', () => sfxWhoosh());              // 릴리즈 — 시위 텅
+  state.on('bowCancel', () => sfxTick());
   state.on('meleeHeavy', () => { sfxWhoosh(); setTimeout(() => sfxWhoosh(), 220); }); // 강공: 치켜듦 → 내리침
   state.on('meleeHeavyImpact', (hits) => { if (hits) sfxBoom(0.35); });
   state.on('evadeStart', () => sfxWhoosh());          // 회피 스텝

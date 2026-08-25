@@ -32,11 +32,13 @@ export const PLAYER = {
 // ── 무기 — PPTX {0}/{1} 규칙: 재장전량 = min(MaxMag-현재, 예비), 예비에서 정확히 차감 ──
 export const WEAPONS = {
   rifle:   { key: 'rifle',   name: '영천 장총', mag: 6, reserve: 60, dmg: 10, weakMult: 2, fireMs: 330, reloadMs: 600,  spread: 12, kick: 0.045 },
-  // 조선 산탄총: 펠릿 8발을 한 번에. 근거리 폭발력, 원거리는 급격히 무력해진다
-  carbine: { key: 'carbine', name: '조선 산탄총', mag: 5, reserve: 30, dmg: 9, weakMult: 2, fireMs: 620, reloadMs: 1100, spread: 0, kick: 0.16,
-             pellets: 8, spreadDeg: 7.5, falloffFrom: 8, falloffTo: 22, minMult: 0.15 },
-  ritual:  { key: 'ritual',  name: '흑각궁',    mag: 1, reserve: 3,  dmg: 60, weakMult: 2, fireMs: 800, reloadMs: 1600, spread: 8,  kick: 0.10,
-             silent: true, drawMs: 520 },   // 활 — 무소음(은신 시너지) + 시위 당김 선행
+  // 조선 산탄총: 펠릿 10발이 넓게 퍼진다. 근거리 원콤 청소기, 원거리는 급격히 무력.
+  // ADS 없음 — 힙파이어 전용 (플레이테스트: "샷건은 줌으로 때리는 게 아니야")
+  carbine: { key: 'carbine', name: '조선 산탄총', mag: 5, reserve: 30, dmg: 10, weakMult: 2, fireMs: 680, reloadMs: 1100, spread: 0, kick: 0.2,
+             pellets: 10, spreadDeg: 11, falloffFrom: 7, falloffTo: 20, minMult: 0.12 },
+  // 활 — 홀드-릴리즈: 좌클릭을 눌러 당기고, 놓아서 쏜다. 당김 시간에 비례해 위력 35%→100%.
+  ritual:  { key: 'ritual',  name: '흑각궁',    mag: 1, reserve: 3,  dmg: 60, weakMult: 2, fireMs: 300, reloadMs: 1600, spread: 8,  kick: 0.10,
+             silent: true, drawMs: 520, minDrawMs: 140, minPower: 0.35 },
   hwando:  { key: 'hwando',  name: '환도',      mag: 1, reserve: 0,  dmg: 34, weakMult: 2, fireMs: 420, reloadMs: 0,    spread: 0,  kick: 0.06,
              melee: true, range: 2.6, arcDeg: 100 },   // 근접 — 탄약 없음, 숏앤슬래시
 };

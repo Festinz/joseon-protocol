@@ -38,17 +38,25 @@ export function initInput() {
     if (state.phase !== 'play') return;
     if (!isLocked()) { canvas().requestPointerLock(); return; }
     if (state.paused) return;
-    if (e.button === 0) { lmbHeld = true; state.emit('firePressed'); }
+    if (e.button === 0) {
+      lmbHeld = true;
+      const wc0 = WEAPONS[state.currentWeapon];
+      if (wc0?.drawMs) { state.emit('bowDrawStart'); return; }    // 활: 홀드 = 당김 (릴리즈로 발사)
+      state.emit('firePressed');
+    }
     if (e.button === 2) {                                         // 우클릭 — 든 무기에 따라 갈린다
       rmbHeld = true;
       const wc = WEAPONS[state.currentWeapon];
       if (wc?.melee) { state.emit('heavyPressed'); return; }      // 환도: 강공
-      if (wc?.drawMs) { state.bowDraw = true; return; }           // 활: 시위 당김 (조준경 없음)
+      if (wc?.drawMs || wc?.pellets) return;                      // 활·산탄총: 조준경 없음 (힙파이어)
       state.ads = true;                                           // 총기: 견착(ADS)
     }
   });
   document.addEventListener('mouseup', (e) => {
-    if (e.button === 0) lmbHeld = false;
+    if (e.button === 0) {
+      lmbHeld = false;
+      if (WEAPONS[state.currentWeapon]?.drawMs) state.emit('bowRelease');  // 당긴 만큼 쏜다
+    }
     if (e.button === 2) { rmbHeld = false; state.ads = false; state.bowDraw = false; }
   });
 
