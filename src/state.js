@@ -29,6 +29,7 @@ export const state = {
 
   items: { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start, grenade: ITEMS.grenade.start },
   smokeUntil: 0,
+  selectedThrowable: 'grenade',   // F 로 던질 투척물 (G 전환)
   ads: false, wheelOpen: false,
 
   ult: 0,
@@ -76,6 +77,7 @@ export function resetRun() {
   state.currentWeapon = 'rifle';
   state.unlockedWeapons = ['rifle'];
   state.items = { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start, grenade: ITEMS.grenade.start };
+  state.selectedThrowable = 'grenade';
   state.ads = false; state.wheelOpen = false;
   state.smokeUntil = 0;
   state.ult = 0; state.ultCasting = false;

@@ -18,6 +18,11 @@ let deadAt = 0;
 export function initFlow() {
   state.on('ultPressed', tryUlt);
   state.on('useItem', useItem);
+  state.on('cycleThrowable', () => {   // G: 수류탄 ↔ 연막
+    state.selectedThrowable = state.selectedThrowable === 'grenade' ? 'smoke' : 'grenade';
+    state.emit('itemsChanged');
+    state.emit('recapLine', `투척물 — ${state.selectedThrowable === 'grenade' ? '수류탄' : '연막탄'} (F 투척)`);
+  });
   state.on('playerDead', () => { deadAt = now(); });
   state.on('forceCoverRequest', () => {});
   state.on('runComplete', () => state.emit('showEnding'));

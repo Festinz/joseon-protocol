@@ -90,11 +90,13 @@ export function updateVmSprite(dt) {
     }
   }
 
-  // ADS: 총을 내리고 조준경(스코프 오버레이)으로 전환 — 2D 스프라이트의 견착 문법
+  // ADS "견착": 총을 들어 올려 눈에 가져다 댄다 (배그 문법) — 중앙+위로 이동·확대·수평 정렬,
+  // 눈에 닿는 마지막 구간에 총이 페이드아웃되며 스코프 렌즈가 커지며 선명해진다.
   // 미러는 #vmwrap scaleX(-1) 이 전담 — 여기선 손 부호 보정 없음. 화면공간인 스웨이만 wsign.
   const wsign = state.hand === 'L' ? -1 : 1;
-  const adsX = -adsT * (innerWidth * 0.02);
-  const adsY = adsT * (innerHeight * 0.62);
+  const eA = adsT * adsT * (3 - 2 * adsT);            // smoothstep — 들어올리는 가속감
+  const adsX = -(innerWidth * 0.17) * eA;             // 화면 중앙으로
+  const adsY = -(innerHeight * 0.09) * eA;            // 눈높이로 들어올림
   const crouchY = state.playerCrouching ? 14 : 0;
   // 상하 조준 패럴랙스: 위를 보면 총이 내려가고 살짝 들리는 느낌 (2D 스프라이트의 3D 착시)
   const pitch = state._pitchVal || 0;
@@ -103,18 +105,23 @@ export function updateVmSprite(dt) {
 
   // 조준감: 원근 단축 — 총구(이미지 좌단)가 화면 안쪽(크로스헤어 방향)으로 후퇴.
   // 래퍼 미러가 전체를 뒤집으므로 아트 공간 항은 부호 보정 불필요, 화면공간(스웨이)만 wsign 적용.
-  const aimYaw = 17 * (1 - adsT * 0.7);          // ADS 시 정렬 (덜 기울임)
-  const aimTilt = -4.5 * (1 - adsT * 0.6);       // 총구 살짝 들어 크로스헤어 쪽으로
+  const aimYaw = 17 * (1 - eA * 0.85);           // 들어올리며 수평 정렬
+  const aimTilt = -4.5 - 7 * eA;                 // 총구를 눈높이로 세움
   const swx = swayX * swayScale * wsign;
   img.style.transform =
     `perspective(1000px) translate(${bobX + ax + adsX + swx}px, ${bobY + ay + adsY + kickY + crouchY + pitchY + swayY * swayScale}px) ` +
     `rotateY(${aimYaw}deg) ` +
-    `rotate(${kickR + ar + aimTilt + pitchR + swx * 0.05}deg) scale(${scale + adsT * 0.16})`;
+    `rotate(${kickR + ar + aimTilt + pitchR + swx * 0.05}deg) scale(${scale + eA * 0.5})`;
+  // 눈에 닿는 순간(60%~92%) 총이 시야에서 사라진다
+  img.style.opacity = eA < 0.6 ? 1 : Math.max(0, 1 - (eA - 0.6) / 0.32);
 
-  // 스코프 오버레이 페이드 + 레티클 미세 스웨이, 기본 크로스헤어는 스코프에 양보
+  // 스코프 렌즈: 늦게 시작해 커지며(눈에 다가옴) 흐림 → 선명
   if (scopeEl) {
-    scopeEl.style.opacity = adsT < 0.02 ? 0 : adsT;
-    if (scopeSvg) scopeSvg.style.transform = `translate(${swayX * 0.35}px, ${swayY * 0.35 + kickY * 0.4}px)`;
+    const so = Math.max(0, (eA - 0.45) / 0.55);
+    scopeEl.style.opacity = so;
+    scopeEl.style.filter = so < 1 ? `blur(${(1 - so) * 3.5}px)` : '';
+    if (scopeSvg) scopeSvg.style.transform =
+      `translate(${swayX * 0.35}px, ${swayY * 0.35 + kickY * 0.4}px) scale(${1.28 - 0.28 * so})`;
   }
   if (xhairEl) xhairEl.style.opacity = 1 - adsT * 0.9;
 }

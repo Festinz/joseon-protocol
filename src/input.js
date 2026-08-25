@@ -75,7 +75,7 @@ export function initInput() {
       case 'KeyX': keys.x = true; break;                        // 우 리닝
       case 'KeyR': state.emit('reloadPressed'); break;
       case 'KeyT': state.emit('useItem', 'tonic'); break;       // T = 탕약
-      case 'KeyG': state.emit('useItem', 'smoke'); break;       // G = 연막
+      case 'KeyG': state.emit('cycleThrowable'); break;         // G = 투척물 전환 (수류탄↔연막)
       case 'KeyF': state.emit('grenadePressed'); break;         // F = 수류탄
       case 'KeyE': state.emit('assassinatePressed'); break;     // E = 암살/상호작용
       case 'KeyQ': state.emit('ultPressed'); break;             // Q = 궁극기

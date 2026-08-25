@@ -45,7 +45,8 @@ export function initThrowables(sc) {
 
 function tryThrow() {
   if (state.phase !== 'play' || state.paused || state.player.state === 'DEAD' || state.ultCasting) return;
-  if ((state.items.grenade || 0) <= 0) { state.emit('recapLine', '수류탄이 없다'); return; }
+  if (state.selectedThrowable === 'smoke') { state.emit('useItem', 'smoke'); return; } // F = 선택 투척물
+  if ((state.items.grenade || 0) <= 0) { state.emit('recapLine', '수류탄이 없다 — G 로 연막 전환'); return; }
   if (now() - lastThrow < GRENADE.cooldownMs) return;
   lastThrow = now();
   state.items.grenade -= 1;

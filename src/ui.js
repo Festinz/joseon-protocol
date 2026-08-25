@@ -165,7 +165,11 @@ function renderSlots() {
 }
 function renderItems() {
   $('it-tonic').innerHTML = `탕약 <b>×${state.items.tonic}</b> <span style="opacity:.6">T</span>`;
-  $('it-smoke').innerHTML = `연막 <b>×${state.items.smoke}</b> <span style="opacity:.6">G</span> &nbsp;·&nbsp; 수류탄 <b>×${state.items.grenade}</b> <span style="opacity:.6">F</span>`;
+  const selG = state.selectedThrowable === 'grenade';
+  $('it-smoke').innerHTML =
+    `<b style="${selG ? 'color:#ffd24a' : 'opacity:.55'}">수류탄 ×${state.items.grenade}</b> · ` +
+    `<b style="${!selG ? 'color:#ffd24a' : 'opacity:.55'}">연막 ×${state.items.smoke}</b> ` +
+    `<span style="opacity:.6">F 투척 · G 전환</span>`;
   $('it-tonic').classList.toggle('none', state.items.tonic === 0);
   $('it-smoke').classList.toggle('none', state.items.smoke === 0 && state.items.grenade === 0);
 }
@@ -190,15 +194,15 @@ function renderPeekBadge() { // (자유이동판) 견착·리닝 배지 — upda
   if (fav === null) {
     badge.classList.add('neutral');
     arrow.textContent = state.hand === 'L' ? '◀' : '▶';
-    lb.textContent = `${state.hand === 'L' ? '좌' : '우'}견착 — Q/E 리닝 (${state.hand === 'L' ? 'Q' : 'E'} 쪽이 유리)`;
+    lb.textContent = `${state.hand === 'L' ? '좌' : '우'}견착 — Z/X 좌우 기울이기 (${state.hand === 'L' ? 'Z' : 'X'} 쪽이 유리)`;
   } else if (fav) {
     badge.classList.add('fav');
     arrow.textContent = state.hand === 'L' ? '◀' : '▶';
-    lb.textContent = '유리한 리닝 — 빠르고 깊다';
+    lb.textContent = '유리한 기울이기 — 빠르고 깊다';
   } else {
     badge.classList.add('unfav');
     arrow.textContent = state.hand === 'L' ? '▶' : '◀';
-    lb.textContent = '역견착 리닝 — 느리고 얕다 (킬 ×1.5)';
+    lb.textContent = '역견착 기울이기 — 느리고 얕다 (킬 ×1.5)';
   }
 }
 

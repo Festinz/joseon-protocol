@@ -161,7 +161,9 @@
   .handcard .desc .g{color:var(--ok); font-weight:700} .handcard .desc .o{color:var(--warn); font-weight:700}
   .handcard .holdring{position:absolute; inset:0; border-radius:12px; border:3px solid var(--brass); opacity:0; pointer-events:none}
   .handcard.holding .holdring{opacity:1; animation:none}
-  .handcard .holdfill{position:absolute; left:0; bottom:0; height:4px; width:0%; background:var(--brass); border-radius:0 0 12px 12px; pointer-events:none}
+  .handcard .holdfill{position:absolute; left:0; bottom:0; height:11px; width:0%; border-radius:0 0 12px 12px; pointer-events:none;
+                      background:linear-gradient(90deg,var(--brass),#ffe9ad); box-shadow:0 0 14px rgba(255,214,120,.85), 0 0 4px rgba(255,214,120,.9)}
+  .handcard.holding{background:rgba(44,37,20,.92); box-shadow:0 0 24px rgba(201,165,90,.35) inset}
   #fairness{margin-top:22px; font-size:13px; color:var(--steam); letter-spacing:.04em}
   #warnperm{margin-top:8px; font-size:13px; color:var(--danger); font-weight:700; letter-spacing:.08em}
   #holdhint{margin-top:16px; font-size:12px; color:#8f94b5}
@@ -303,8 +305,8 @@
   <p>한성에 증기 요괴가 창궐하였다.<br>어명을 받든 암행어사가 되어 광화문을 지나 경복궁을 수복하라.</p>
   <button class="btn" id="startbtn">출 정</button>
   <div class="keys">
-    <b>WASD</b> 이동 &nbsp; <b>좌클릭</b> 사격 &nbsp; <b>우클릭</b> 견착(ADS) &nbsp; <b>Shift</b> 질주 &nbsp; <b>C</b> 웅크리기(은신) &nbsp; <b>E</b> 암살<br>
-    <b>Z/X</b> 리닝 &nbsp; <b>R</b> 재장전 &nbsp; <b>F</b> 수류탄 &nbsp; <b>Q</b> 궁극기 &nbsp; <b>Space</b> 무기 휠 &nbsp; <b>T</b> 탕약 &nbsp; <b>G</b> 연막 &nbsp; <b>M</b> 음소거
+    <b>WASD</b> 이동 &nbsp; <b>좌클릭</b> 사격 &nbsp; <b>우클릭</b> 조준(스코프) &nbsp; <b>Shift</b> 질주 &nbsp; <b>C</b> 웅크리기<br>
+    <b>Z/X</b> 좌우 기울이기 &nbsp; <b>R</b> 재장전 &nbsp; <b>F</b> 투척 &nbsp; <b>G</b> 투척물 전환 &nbsp; <b>Q</b> 궁극기 &nbsp; <b>Space</b> 무기 전환 &nbsp; <b>T</b> 탕약 &nbsp; <b>M</b> 음소거
   </div>
   <p style="margin-top:18px; font-size:12px; color:#8f94b5">PC · 마우스 전용 · 사운드 권장</p>
   <div id="loaderr"></div>
@@ -313,7 +315,7 @@
 <div id="ceremony" class="overlay hidden">
   <h1>마패 수여식</h1>
   <div class="eng">Choose Your Shoulder</div>
-  <p>총을 어느 어깨에 메겠는가. 견착한 쪽으로 기울이면(Q/E) 빠르고 깊게 내다볼 수 있으나,<br>반대쪽 리닝은 느리고 얕다. 대신 역견착으로 잡은 적은 공적을 1.5배로 친다.</p>
+  <p>총을 어느 어깨에 메겠는가. 견착한 쪽으로 기울이면(Z/X) 빠르고 깊게 내다볼 수 있으나,<br>반대쪽 기울이기는 느리고 얕다. 대신 역견착으로 잡은 적은 공적을 1.5배로 친다.</p>
   <div class="cards">
     <div class="handcard" id="card-L">
       <h3>좌견착 <span style="font-size:12px;color:#8f94b5">왼어깨</span></h3>
@@ -328,7 +330,7 @@
         <path d="M186 60 L206 26 L166 30 L176 58 Z" fill="#ffa940" opacity=".38"/>
         <text x="158" y="96" font-size="10" fill="#ffa940" font-weight="700">우측 모서리 노출 65%</text>
       </svg>
-      <div class="desc"><span class="g">Q 리닝이 빠르고 깊다</span> · <span class="o">E 리닝은 느리고 얕다</span> — 대신 역견착 킬은 공적 ×1.5</div>
+      <div class="desc"><span class="g">Z(왼쪽) 기울이기가 빠르고 깊다</span> · <span class="o">X(오른쪽)는 느리고 얕다</span> — 대신 역견착 킬은 공적 ×1.5</div>
       <div class="holdring"></div><div class="holdfill"></div>
     </div>
     <div class="handcard" id="card-R">
@@ -344,7 +346,7 @@
         <path d="M184 46 L202 26 L186 22 Z" fill="#7fd07f" opacity=".4"/>
         <text x="152" y="96" font-size="10" fill="#7fd07f" font-weight="700">우측 모서리 노출 30%</text>
       </svg>
-      <div class="desc"><span class="g">E 리닝이 빠르고 깊다</span> · <span class="o">Q 리닝은 느리고 얕다</span> — 대신 역견착 킬은 공적 ×1.5</div>
+      <div class="desc"><span class="g">X(오른쪽) 기울이기가 빠르고 깊다</span> · <span class="o">Z(왼쪽)는 느리고 얕다</span> — 대신 역견착 킬은 공적 ×1.5</div>
       <div class="holdring"></div><div class="holdfill"></div>
     </div>
   </div>
