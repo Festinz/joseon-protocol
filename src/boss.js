@@ -114,7 +114,71 @@ export function initBossFight(node, isContinue = false) {
       inner.add(g.scene);
       if (path.includes('haetae')) repositionParts();
     }, undefined, () => { if (path.includes('haetae')) swapBody('assets/models/gobungi_body.glb?v=2', 0.78); });
-    swapBody('assets/models/haetae.glb?v=2', 1.0);
+
+    // 이족 해태(리깅 + Walking/Running 클립). 원본 네발 해태는 리그가 없는 정적 메시라
+    // 모든 모션이 통짜 기울임뿐이었다 → Meshy 이족 재생성 + 자동 리깅으로 교체.
+    // 물기·할퀴기·포효는 클립이 없으므로 매 프레임 믹서 갱신 뒤 본에 절차 오프셋을 얹는다.
+    new GLTFLoader().load('assets/models/haetae2.glb?v=1', (g) => {
+      const body = inner.getObjectByName('body'); if (body) body.visible = false;
+      const sc = g.scene;
+      sc.scale.setScalar(1.35);                        // 신장 3.2m × inner 1.5 ≈ 월드 6.5m 위압
+      sc.traverse(o => {
+        if (o.isMesh && o.material) {
+          o.material.roughness = Math.min(0.9, o.material.roughness ?? 0.8);
+          o.material.emissive = new THREE.Color(0xffffff);
+          o.material.emissiveMap = o.material.map || null;
+          o.material.emissiveIntensity = 0.3;          // 야간 판독성
+          o.frustumCulled = false;                     // 스키닝 바운딩 이슈 방지
+        }
+      });
+      inner.add(sc);
+      // 발 접지: 리그 원점이 Hips 라 바운딩 최저점이 0 이 아니다 → 지면에 맞춰 내린다
+      sc.updateMatrixWorld(true);
+      {
+        const bb = new THREE.Box3().setFromObject(sc);
+        sc.position.y -= bb.min.y - group.position.y * 0;   // inner 로컬 기준
+        const innerInv = new THREE.Matrix4().copy(inner.matrixWorld).invert();
+        const minLocal = bb.min.clone().applyMatrix4(innerInv);
+        sc.position.y -= minLocal.y;
+      }
+      const mixer = new THREE.AnimationMixer(sc);
+      const actions = {};
+      for (const c of g.animations) {
+        const k = c.name.toLowerCase();
+        if (k.includes('walk')) actions.walk = mixer.clipAction(c);
+        else if (k.includes('run')) actions.run = mixer.clipAction(c);
+      }
+      const bones = {};
+      sc.traverse(o => { if (o.isBone) bones[o.name] = o; });
+      if (actions.walk) { actions.walk.setEffectiveWeight(1); actions.walk.play(); }
+      if (actions.run) { actions.run.setEffectiveWeight(0); actions.run.play(); }
+      boss.rig = { root: sc, mixer, actions, bones, wWalk: 1, wRun: 0 };
+      repositionPartsBiped();
+    }, undefined, () => swapBody('assets/models/haetae.glb?v=2', 1.0));
+
+    // 이족 체형 기준 게임플레이 파츠 마운트 (코어 = 텍스처의 가슴 발광부와 일치)
+    const repositionPartsBiped = () => {
+      const mounts = [[-0.68, 2.48, 0.10], [0.68, 2.48, 0.10], [-0.42, 2.92, -0.14], [0.42, 2.92, -0.14]];
+      for (let i = 0; i < 4; i++) {
+        const t = inner.getObjectByName('turret' + i);
+        const hit = inner.getObjectByName('hitTurret' + i);
+        if (t) t.position.set(...mounts[i]);
+        if (hit) hit.position.set(...mounts[i]);
+      }
+      const chest = inner.getObjectByName('chestCore');
+      if (chest) {
+        chest.position.set(0, 2.12, 0.50);
+        chest.rotation.set(0, 0, 0);
+        const lid = inner.getObjectByName('coreLid');
+        if (lid) { lid.position.set(0, 0, 0); lid.scale.set(0.62, 0.62, 0.10); lid.userData.baseY = 0; lid.userData.rise = 0.6; }
+        const orb = inner.getObjectByName('coreOrb');
+        if (orb) { orb.position.set(0, 0, 0.10); orb.scale.set(0.36, 0.36, 0.26); }
+        const hc2 = inner.getObjectByName('hitCore');
+        if (hc2) { hc2.position.set(0, 0, 0.05); hc2.scale.set(0.62, 0.62, 0.50); }
+        const rg = inner.getObjectByName('coreRing');
+        if (rg) { rg.position.set(0, 0, 0.14); rg.userData.base = 0.45; }
+      }
+    };
     const turrets = [];
     for (let i = 0; i < 4; i++) {
       const t = inner.getObjectByName('turret' + i);
@@ -513,6 +577,40 @@ function updateMelee(dt) {
   boss.inner.rotation.x += (tiltX - boss.inner.rotation.x) * Math.min(1, dts * 8);
   const targetRoll = rollZ === null ? Math.sin(mv.bob * 0.5) * 0.045 : rollZ;
   boss.inner.rotation.z += (targetRoll - boss.inner.rotation.z) * Math.min(1, dts * 12);
+
+  // ── 리깅 애니메이션: Walking/Running 크로스페이드 + 상태별 본 오버레이 ──
+  if (boss.rig) {
+    const r = boss.rig;
+    // 리그가 걸음을 표현하므로 통짜 갤럽 바운스는 끈다 (inner y 는 crouch 만 유지)
+    boss.inner.position.y = crouchY * 0.6;
+    const wantRun = mv.mode === 'CHARGE' ? 1 : 0;
+    const slow = (mv.mode === 'PROWL' || mv.mode === 'CHARGE') ? 1 : 0.12;   // 대기 모드 = 제자리 숨쉬기
+    r.wRun += (wantRun - r.wRun) * Math.min(1, dts * 6);
+    r.wWalk = 1 - r.wRun;
+    if (r.actions.walk) { r.actions.walk.setEffectiveWeight(r.wWalk); r.actions.walk.setEffectiveTimeScale(1.05 * slow); }
+    if (r.actions.run) { r.actions.run.setEffectiveWeight(r.wRun); r.actions.run.setEffectiveTimeScale(1.0); }
+    r.mixer.update(dts);
+    // 본 절차 오버레이 — 믹서가 쓴 포즈 위에 상태별 오프셋 (매 프레임 재적용이라 잔류 없음)
+    const B = r.bones;
+    const add = (n, x = 0, y2 = 0, z2 = 0) => { const b = B[n]; if (b) { b.rotation.x += x; b.rotation.y += y2; b.rotation.z += z2; } };
+    if (mv.mode === 'TELE_BITE') { add('Spine01', -0.28); add('neck', -0.2); add('Head', -0.45); }
+    else if (mv.mode === 'BITE') { add('Spine01', 0.4); add('neck', 0.2); add('Head', 0.5); }
+    else if (mv.mode === 'CLAW') {
+      const k = Math.max(0, 1 - (mv.until - t) / MELEE.claw.stepMs);
+      const sw = Math.sin(Math.min(1, k) * Math.PI);
+      const side = (mv.swipeN % 2) ? 1 : -1;
+      add(side > 0 ? 'RightArm' : 'LeftArm', -1.7 * sw, 0, side * 0.7 * sw);
+      add(side > 0 ? 'RightForeArm' : 'LeftForeArm', -0.5 * sw);
+      add('Spine02', 0, side * 0.3 * sw);
+    }
+    else if (mv.mode === 'TELE_NOVA') { add('Spine', -0.4); add('LeftArm', -0.9, 0, -0.5); add('RightArm', -0.9, 0, 0.5); add('Head', -0.35); }
+    else if (mv.mode === 'NOVA') { add('Spine', 0.18); add('LeftArm', -2.1, 0, -0.9); add('RightArm', -2.1, 0, 0.9); add('Head', 0.2); }
+    else if (mv.mode === 'TELE_BREATH') { add('neck', -0.25); add('Head', -0.4); add('Spine01', -0.15); }
+    else if (mv.mode === 'BREATH') { add('neck', 0.1); add('Head', 0.28); }
+    else if (mv.mode === 'TELE_CHARGE') { add('Spine', -0.35); add('Head', -0.2); }
+    else if (mv.mode === 'TELE_LEAP') { add('Spine', -0.3); add('LeftUpLeg', -0.3); add('RightUpLeg', -0.3); }
+    else if (mv.mode === 'LEAP') { add('Spine', 0.3); add('LeftArm', -1.2, 0, -0.4); add('RightArm', -1.2, 0, 0.4); }
+  }
 }
 
 function startPhase2() {
