@@ -70,7 +70,7 @@ let soldierGLBAnims = null;   // 애니메이티드 GLB (Meshy 리깅) 클립들
 const soldierSwapQueue = [];
 const VARIANT_TINT = { grunt: null, marksman: 0xffb0a0, thrower: 0xd8b890, shield: 0xb8c0cc };
 import { state as _state } from './state.js';
-new GLTFLoader().load('assets/models/soldier.glb?v=4', (g) => {
+new GLTFLoader().load('assets/models/soldier.glb?v=5', (g) => {
   soldierGLBScene = g.scene;
   soldierGLBAnims = (g.animations && g.animations.length) ? g.animations : null;
   for (const job of soldierSwapQueue) attachSoldierGLB(...job);

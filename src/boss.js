@@ -114,7 +114,7 @@ export function initBossFight(node, isContinue = false) {
       inner.add(g.scene);
       if (path.includes('haetae')) repositionParts();
     }, undefined, () => { if (path.includes('haetae')) swapBody('assets/models/gobungi_body.glb?v=2', 0.78); });
-    swapBody('assets/models/haetae.glb?v=1', 1.0);
+    swapBody('assets/models/haetae.glb?v=2', 1.0);
     const turrets = [];
     for (let i = 0; i < 4; i++) {
       const t = inner.getObjectByName('turret' + i);

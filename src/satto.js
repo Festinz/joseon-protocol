@@ -44,7 +44,7 @@ export function spawnSatto(pos = [0, 0, -103]) {
     }
   });
   group.add(proc);
-  new GLTFLoader().load('assets/models/satto.glb?v=5', (g) => {
+  new GLTFLoader().load('assets/models/satto.glb?v=6', (g) => {
     proc.visible = false;
     g.scene.traverse(o => { if (o.isMesh && o.material) { o.material.emissive = new THREE.Color(0xffffff); o.material.emissiveMap = o.material.map || null; o.material.emissiveIntensity = 0.35; } });
     group.add(g.scene);
