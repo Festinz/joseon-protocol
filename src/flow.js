@@ -114,7 +114,10 @@ export function updateFlow(dt) {
       state.player.hp = PLAYER.hp; state.player.state = 'COVERED';
       state.player.invulnUntil = now() + 1500;
       clearAll(); clearDangerShots(); resetSatto(); zs.satto = false;
-      teleport(zone.anchor[0], zone.enterZ + 2.5);
+      // ⚠ 부활 위치는 존 '안'(enterZ - 2.5)이어야 한다. 이전엔 +2.5(경계 밖)라
+      // currentZoneIdx 가 이전 존을 가리켜 보스존 updateBoss/웨이브 로직이 통째로 멈췄다 —
+      // "이어하기 후 보스가 소환 안 됨/멈춤" 의 원인.
+      teleport(zone.anchor[0], zone.enterZ - 2.5);
       state.emit('scoreChanged'); state.emit('playerRevived');
       state.emit('bannerShow', '이어하기 — 구간 점수 절반');
       if (zone.boss) initBossFight(zone, true);
@@ -136,7 +139,11 @@ export function updateFlow(dt) {
     zs.waveActive = false;
     const next = zs.waveIdx + 1;
     if (next < zone.waves.length) setTimeout(() => startWave(i, next), 900);
-    else if (zone.id === 'Z4' && !zs.satto) { zs.satto = true; setTimeout(() => spawnSatto([zone.anchor[0], 0, zone.anchor[2] - 6]), 1200); }
+    else if (zone.id === 'Z4' && !zs.satto) {
+      zs.satto = true;
+      // 예약~발화 사이에 죽으면 이어하기가 zs.satto 를 되돌린다 — 그 경우 유령 소환 금지
+      setTimeout(() => { if (zs.satto && state.player.state !== 'DEAD') spawnSatto([zone.anchor[0], 0, zone.anchor[2] - 6]); }, 1200);
+    }
     else if (zone.id !== 'Z4') zoneCleared(i);
   }
 }
