@@ -2,7 +2,7 @@
 // TC 대원칙: 잡졸(화승병) 사격은 전부 연출탄(데미지 0). 위협은 명중탄 스케줄뿐.
 
 import * as THREE from 'three';
-import { ENEMIES, DANGER, SCORE, PLAYER, WEAPONS } from './config.js';
+import { ENEMIES, DANGER, SCORE, PLAYER, WEAPONS, HEAVY } from './config.js';
 import { state, now } from './state.js';
 import { buildSoldier, retrofitSoldierAnim } from './assets.js';
 import { registerHittable, unregisterActor, spawnDangerShot, creditKill, creditHit, creditShootdown, damagePlayer } from './combat.js';
@@ -180,6 +180,10 @@ function onActorHit(a, part, dmg, info) {
   if (!info?.silent) a.aware = true;            // 암살은 무음 — 그 외 피격은 인지
   creditHit();
   a.hitFlash = now();
+  if (a.hp > 0 && info?.heavy) {   // 강공 경직 — 살아남은 적을 HEAVY.staggerMs 동안 멈춰 세운다
+    a.st = 'RECOIL'; a.stT = now(); a.recoilMs = HEAVY.staggerMs;
+    state.emit('enemyStaggered', a);
+  }
   if (a.hp <= 0) {
     a.alive = false; a.st = 'DIE'; a.stT = now();
     a.aura.visible = false;
@@ -296,7 +300,7 @@ export function updateEnemies(dt) {
         }
         break;
       }
-      case 'RECOIL': { if (el > 800) { a.st = 'IDLE'; a.stT = t; } break; }
+      case 'RECOIL': { if (el > (a.recoilMs || 800)) { a.st = 'IDLE'; a.stT = t; a.recoilMs = 0; } break; }
       case 'DIE': {
         if (a._deathAnim === undefined) a._deathAnim = playA(a, ['death', 'die', 'dying', 'fall'], false);
         if (a._deathAnim) { // 스켈레탈 사망 모션: 1.4s 재생 후 페이드
