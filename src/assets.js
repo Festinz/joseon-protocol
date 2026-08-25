@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as BGU from 'three/addons/utils/BufferGeometryUtils.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { PALETTE } from './config.js';
 import { WALLS, COVERS, GATES } from './leveldata.js';
 import { stoneFloorTex, roofTileTex, stoneWallTex, skyTex, hanjiWindowTex } from './textures.js';
@@ -59,17 +60,19 @@ const G = {
 // Meshy 병사 GLB 가 로드되면 몸체를 교체 (변형 마커·프록시·모션은 유지)
 // ══════════════════════════════════════════════════════════════════
 let soldierGLBScene = null;
+let soldierGLBAnims = null;   // 애니메이티드 GLB (Meshy 리깅) 클립들
 const soldierSwapQueue = [];
 const VARIANT_TINT = { grunt: null, marksman: 0xffb0a0, thrower: 0xd8b890, shield: 0xb8c0cc };
 new GLTFLoader().load('assets/models/soldier.glb', (g) => {
   soldierGLBScene = g.scene;
+  soldierGLBAnims = (g.animations && g.animations.length) ? g.animations : null;
   for (const job of soldierSwapQueue) attachSoldierGLB(...job);
   soldierSwapQueue.length = 0;
 }, undefined, () => {});
 
 function attachSoldierGLB(torso, body, variant) {
   if (!soldierGLBScene) { soldierSwapQueue.push([torso, body, variant]); return; }
-  const clone = soldierGLBScene.clone(true);
+  const clone = soldierGLBAnims ? SkeletonUtils.clone(soldierGLBScene) : soldierGLBScene.clone(true);
   const tint = VARIANT_TINT[variant];
   clone.traverse(o => {
     if (o.isMesh && o.material) {
@@ -85,6 +88,7 @@ function attachSoldierGLB(torso, body, variant) {
   clone.name = 'glbBody';
   body.visible = false;
   torso.add(clone);
+  if (soldierGLBAnims) torso.userData.glbAnim = { root: clone, clips: soldierGLBAnims }; // enemies 가 믹서 생성
 }
 export function buildSoldier(variant = 'grunt') {
   const root = new THREE.Group(); root.name = 'soldier_' + variant;
@@ -130,11 +134,11 @@ export function buildSoldier(variant = 'grunt') {
   barrel.scale.set(0.07, 0.7, 0.07); barrel.rotation.x = Math.PI / 2; barrel.position.z = -0.3; gun.add(barrel);
   const muzzle = new THREE.Object3D(); muzzle.name = 'muzzle'; muzzle.position.set(0, 0, -0.65); gun.add(muzzle);
 
-  // 히트 프록시 (렌더 안 됨, 레이캐스트만)
+  // 히트 프록시 (렌더 안 됨, 레이캐스트만) — GLB 몸체 기준으로 관대하게
   const hitBody = new THREE.Mesh(G.box, MAT.PROXY); hitBody.name = 'hitBody';
-  hitBody.scale.set(0.75, 1.35, 0.6); hitBody.position.y = 0.1; torso.add(hitBody);
+  hitBody.scale.set(0.8, 1.4, 0.65); hitBody.position.y = 0.08; torso.add(hitBody);
   const hitHead = new THREE.Mesh(G.sphere, MAT.PROXY); hitHead.name = 'hitHead';
-  hitHead.scale.set(0.42, 0.42, 0.42); hitHead.position.y = 0.62; torso.add(hitHead);
+  hitHead.scale.set(0.62, 0.66, 0.62); hitHead.position.y = 0.72; torso.add(hitHead); // 갓 포함 넉넉히
   return root;
 }
 

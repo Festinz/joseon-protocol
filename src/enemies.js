@@ -84,6 +84,35 @@ export function clearAll() {
 export function aliveCount() { return actors.filter(a => a.alive).length + spawnQueue.length; }
 export function getActors() { return actors; }
 
+// ── 애니메이션 (Meshy 리깅 GLB — 있으면 스켈레탈, 없으면 절차 모션 폴백) ──
+function ensureMixer(a) {
+  if (a.mixer) return true;
+  const torso = a.group.getObjectByName('torsoPivot');
+  const ga = torso?.userData?.glbAnim;
+  if (!ga) return false;
+  a.mixer = new THREE.AnimationMixer(ga.root);
+  a.clips = {};
+  for (const c of ga.clips) a.clips[c.name.toLowerCase()] = c;
+  a.curAction = null;
+  return true;
+}
+function playA(a, names, loop = true) {
+  if (!ensureMixer(a)) return false;
+  for (const n of names) {
+    const key = Object.keys(a.clips).find(k => k.includes(n));
+    if (!key) continue;
+    const next = a.mixer.clipAction(a.clips[key]);
+    if (a.curAction === next) return true;
+    next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+    next.clampWhenFinished = !loop;
+    next.reset().fadeIn(0.18).play();
+    if (a.curAction) a.curAction.fadeOut(0.18);
+    a.curAction = next;
+    return true;
+  }
+  return false;
+}
+
 function doSpawn({ entry, node }) {
   const a = acquire(entry.type);
   const cfg = ENEMIES[entry.type];
@@ -135,6 +164,7 @@ function onActorHit(a, part, dmg, info) {
 
 function despawn(a, keepScene) {
   a.alive = false; unregisterActor(a);
+  if (a.mixer) { a.mixer.stopAllAction(); a.curAction = null; }
   const i = actors.indexOf(a); if (i >= 0) actors.splice(i, 1);
   if (a.group.parent) a.group.parent.remove(a.group);
   a.group.rotation.set(0, 0, 0); a.group.scale.setScalar(1);
@@ -194,18 +224,30 @@ export function updateEnemies(dt) {
           if (d < near || (facing > 0.5 && d < 14 && !state.playerCrouching)) { a.aware = true; state.emit('enemyAlerted', a); }
           else break; // 미인지: 사격/추적 없음
         }
-        if (a.type === 'shield') {
-          a.group.position.addScaledVector(_v.subVectors(rig.dolly.position, a.group.position).setY(0).normalize(), dt * 0.0006);
-          if (a.group.position.distanceTo(rig.dolly.position) < 2.2) { damagePlayer(PLAYER.dangerHit, '팽배수 근접 공격'); a.st = 'RECOIL'; a.stT = t; }
+        // ── 보행: 인지 후 교전 거리까지 전진 (걷기 모션 + 실제 이동) ──
+        const pd = a.group.position.distanceTo(rig.dolly.position);
+        const engage = a.type === 'shield' ? 2.2 : a.type === 'marksman' ? 11 : 8;
+        if (pd > engage) {
+          const spd = a.type === 'shield' ? 0.9 : 1.6;
+          a.group.position.addScaledVector(_v.subVectors(rig.dolly.position, a.group.position).setY(0).normalize(), spd * dt * 0.001);
+          if (!playA(a, ['walk', 'run', 'jog'])) { /* 폴백: sine 보행 바운스 */ a.group.position.y = a.homeY + Math.abs(Math.sin(t * 0.008 + a.seed)) * 0.07; }
+        } else {
+          playA(a, ['idle', 'stand']);
+          // 살짝 좌우 스트레이프 (총격전 생동감)
+          a.group.position.x += Math.sin(t * 0.0012 + a.seed * 7) * dt * 0.0003;
         }
+        if (a.type === 'shield' && pd < 2.2) { damagePlayer(PLAYER.dangerHit, '팽배수 근접 공격'); a.st = 'RECOIL'; a.stT = t; }
         a.group.lookAt(rig.dolly.position.x, a.homeY, rig.dolly.position.z);
         // 사격 스케줄
         if (a.type === 'grunt' && t >= a.nextFire) {
           a.nextFire = t + 2500 + Math.random() * 2500;
+          playA(a, ['attack', 'shoot', 'fire', 'punch'], false);
+          setTimeout(() => { if (a.alive) playA(a, ['idle', 'stand']); }, 900);
           state.emit('decoyShot', a); // 연출탄: 머즐 플래시+소리만, 데미지 0
         }
         if (a.type === 'marksman' && t >= a.nextFire && t >= state.smokeUntil) {
           a.st = 'TELEGRAPH'; a.stT = t; a.aura.visible = true;
+          playA(a, ['attack', 'shoot', 'fire', 'aim'], false);
           state.emit('dangerTelegraph', a);
         }
         if (a.type === 'thrower' && t >= a.nextFire) {
@@ -226,16 +268,23 @@ export function updateEnemies(dt) {
       }
       case 'RECOIL': { if (el > 800) { a.st = 'IDLE'; a.stT = t; } break; }
       case 'DIE': {
-        const k = Math.min(1, el / 450);
-        if (torso) torso.rotation.x = -k * 1.4;
-        a.group.scale.setScalar(1 - k * 0.25);
-        if (k >= 1) despawn(a, false);
+        if (a._deathAnim === undefined) a._deathAnim = playA(a, ['death', 'die', 'dying', 'fall'], false);
+        if (a._deathAnim) { // 스켈레탈 사망 모션: 1.4s 재생 후 페이드
+          if (el >= 1400) { a._deathAnim = undefined; despawn(a, false); }
+        } else {
+          const k = Math.min(1, el / 450);
+          if (torso) torso.rotation.x = -k * 1.4;
+          a.group.scale.setScalar(1 - k * 0.25);
+          if (k >= 1) { a._deathAnim = undefined; despawn(a, false); }
+        }
         break;
       }
     }
     // 피격 플래시 (틴트 대신 살짝 움찔)
     if (a.hitFlash && t - a.hitFlash < 90 && torso) torso.rotation.x = 0.15;
-    else if (a.st !== 'DIE' && torso) torso.rotation.x = 0;
+    else if (a.st !== 'DIE' && torso && !a.mixer) torso.rotation.x = 0;
+    // 스켈레탈 믹서 갱신
+    if (a.mixer) a.mixer.update(Math.min(0.05, dt / 1000));
   }
 
   // 진천뢰 비행 (포물선) — 임팩트 시 무조건 착탄 데미지 (엄폐 무관 아님: 숨어도 맞나? → TC 문법: 격추 실패 착탄은 노출 여부 무관 −25... 원안은 "숨기 vs 격추" 선택지이므로 숨으면 회피 가능해야 함)
