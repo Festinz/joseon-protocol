@@ -20,6 +20,21 @@ let deadAt = 0;
 export function initFlow() {
   state.on('ultPressed', tryUlt);
   state.on('useItem', useItem);
+  // ⚠ 아래 4개 핸들러는 투척류 제거 수술 때 실수로 함께 잘려나갔었다 (관통 테스트로 발견).
+  //    runComplete 가 없으면 엔딩이 영영 안 뜨고, wheelHold 가 없으면 Space 무기 휠이 죽는다.
+  state.on('playerDead', () => { deadAt = now(); });
+  state.on('forceCoverRequest', () => {});
+  state.on('runComplete', () => state.emit('showEnding'));
+  // 무기 휠 (Space 홀드 = 일시정지 + 휠 UI, 마우스 방향으로 선택 → 놓으면 교체)
+  state.on('wheelHold', (held) => {
+    if (state.phase !== 'play' || state.player.state === 'DEAD') return;
+    state.wheelOpen = held; state.paused = held;
+    if (held) { resetWheelVec(); state._wheelPick = state.currentWeapon; }
+    state.emit('wheelShow', held);
+    if (!held && state._wheelPick && state._wheelPick !== state.currentWeapon) {
+      state.emit('switchWeapon', state._wheelPick);
+    }
+  });
   // 사또 격파 → Z4 클리어 처리 (보스룸 문 개방)
   state.on('sattoDefeated', () => {
     const i = ZONES.findIndex(z => z.id === 'Z4');

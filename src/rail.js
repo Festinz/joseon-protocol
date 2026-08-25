@@ -152,6 +152,10 @@ export function updateRail(dt) {
 
   state.playerMoving = Math.hypot(velX, velZ) > 0.5;
 
+  // 월드 경계 클램프 — 충돌이 어떤 경로로든 뚫려도 맵 밖으로는 못 나간다 (최후 안전벨트)
+  rig.dolly.position.x = Math.max(-19.5, Math.min(19.5, rig.dolly.position.x));
+  rig.dolly.position.z = Math.max(-140.6, Math.min(5.5, rig.dolly.position.z));
+
   // ── 앉기 ──
   const crouchGoal = (keys.crouch && evK < 0) ? 1 : 0;   // 회피 중엔 앉기 해제 (스텝 실루엣 우선)
   crouchT += (crouchGoal - crouchT) * Math.min(1, dts * 10);
