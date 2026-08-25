@@ -1,4 +1,4 @@
-// boss.js — 고붕이 (축소 2페이즈). P1: 포탑 4문 파괴 (중립 TOP 커버).
+// boss.js — 해태 (축소 2페이즈). P1: 포탑 4문 파괴 (중립 TOP 커버).
 // P2: 견착 반대편 노드로 강제 이동 → 코어 사이클 + 좌우 교대 명중탄 + 격추 가능 박격.
 // 막판: 천장 붕괴 → fieldType open 전환 → 궁극기 해금 (PPTX 규칙과 맞물리는 피날레).
 
@@ -10,6 +10,7 @@ import { instantiate } from './assets.js';
 import { registerHittable, spawnDangerShot, creditKill, creditShootdown, creditHit, damagePlayer } from './combat.js';
 import { spawnWave } from './enemies.js';
 import { rig } from './rail.js';
+import { burst, shockwave, kick } from './vfx.js';
 
 const CFG = {
   turretHp: 25, coreHp: 200,
@@ -21,6 +22,11 @@ const CFG = {
 };
 
 // ── 해태 근접 이동 AI (엘든링 신수 문법: 배회→돌진/도약/할퀴기, 전부 결정론 회피 가능) ──
+// 해태 근접 패턴. 거리대마다 답이 다르다.
+//   근(<5)    할퀴기 3연격 · 물어뜯기      → 옆으로 빠지거나 회피로 흘린다
+//   중(5~11)  도약 강타 · 꼬리 후리기      → 착지 표시 밖으로 / 몸을 붙여 안쪽으로 파고든다
+//   원(>11)   돌진 · 증기 브레스           → 옆으로 비켜서거나 기둥을 낀다
+//   필살기    포효 후 3중 확장 링          → 링 사이 틈이 아니라 '멀리' 가 답 (텔레그래프가 길다)
 const MELEE = {
   boundsX: 16.5, zMin: -139, zMax: -116.5,
   prowlSpeed: 2.4, prowlDist: 10,
@@ -28,6 +34,10 @@ const MELEE = {
   charge: { teleMs: 850, speed: 15, maxMs: 1500, r: 3.2, dmg: 30, recoverMs: 900 },
   leap:   { teleMs: 950, flyMs: 720, r: 4.8, dmg: 28, recoverMs: 1100 },
   claw:   { range: 7.5, stepMs: 380, swipes: 3, r: 5.4, arcDeg: 140, dmg: 15, recoverMs: 800 },
+  bite:   { range: 5.0, teleMs: 480, r: 3.6, arcDeg: 95, dmg: 34, recoverMs: 720, cooldown: 7000 },
+  tail:   { teleMs: 620, r: 7.6, dmg: 24, recoverMs: 820, cooldown: 9500 },
+  breath: { teleMs: 900, durMs: 1500, range: 17, arcDeg: 42, tickMs: 250, dmg: 8, recoverMs: 1000, cooldown: 12000 },
+  nova:   { teleMs: 1600, rings: 3, r0: 5.5, dr: 4.6, gapMs: 340, dmg: 38, recoverMs: 1700 },
 };
 
 let aura = null, auraMesh = null;
@@ -155,7 +165,8 @@ export function initBossFight(node, isContinue = false) {
              mortarsAlive: 0,
              mv: { mode: 'PROWL', until: 0, nextMeleeAt: now() + 4200, target: new THREE.Vector3(),
                    from: new THREE.Vector3(), dir: new THREE.Vector3(), hitDone: false, swipeN: 0,
-                   yaw: 0, bob: 0 } };
+                   yaw: 0, bob: 0,
+                   lastBite: 0, lastTail: 0, lastBreath: 0, nextTick: 0, ringN: 0, novaUsed: 0 } };
     setCoreOpen(false);
   }
   boss.nextAct = now() + 2500;
@@ -199,6 +210,15 @@ function updateCoreGlow(t) {
 }
 
 function turretsLeft() { return boss.turrets.filter(t => t.actor.alive).length; }
+
+// 필살기는 HP 문턱(65% / 35%)을 지날 때 각 1회. 난사되면 회피 게임이 아니라 운이 된다.
+const NOVA_AT = [0.65, 0.35];
+function novaDue() {
+  if (!boss || boss.phase !== 2) return false;              // P2 부터만
+  const r = Math.max(0, boss.coreActor.hp) / CFG.coreHp;
+  const idx = boss.mv.novaUsed;
+  return idx < NOVA_AT.length && r <= NOVA_AT[idx];
+}
 
 // 통합 보스 HP: 포탑 30% + 코어 70% — "쏘면 바가 닳는다"를 항상 보장
 function emitBossHp() {
@@ -281,7 +301,7 @@ export function updateBoss(dt) {
 }
 
 // ── 해태 이동 상태기계 ──────────────────────────────────────────
-const _toP = new THREE.Vector3();
+const _toP = new THREE.Vector3(), _v3 = new THREE.Vector3();
 function updateMelee(dt) {
   const dts = Math.min(0.05, dt / 1000);
   const t = now();
@@ -307,8 +327,23 @@ function updateMelee(dt) {
     rollZ = Math.sin(mv.bob * 0.5) * 0.085;                // 네발짐승 활보 — 롤을 깊게
     if (t >= mv.nextMeleeAt) {
       mv.target.copy(pp);
-      if (dist < MELEE.claw.range) {                        // 근접: 할퀴기 연격 (엇박)
+      if (novaDue()) {                                      // 필살기 — HP 문턱을 넘을 때 1회씩
+        mv.mode = 'TELE_NOVA'; mv.until = t + MELEE.nova.teleMs; mv.ringN = 0; mv.novaUsed += 1;
+        showAura(g.position.x, g.position.z, MELEE.nova.r0 + MELEE.nova.dr * MELEE.nova.rings,
+                 MELEE.nova.teleMs, 0xff2a2a);
+        state.emit('bossNovaTelegraph');
+        state.emit('bannerShow', '해태가 포효한다 — 멀리 물러서라!');
+      } else if (dist < MELEE.bite.range && t - mv.lastBite > MELEE.bite.cooldown) {
+        mv.mode = 'TELE_BITE'; mv.until = t + MELEE.bite.teleMs; mv.lastBite = t;
+        state.emit('dangerTelegraph', { group: boss.inner });
+      } else if (dist < MELEE.claw.range) {                 // 근접: 할퀴기 연격 (엇박)
         mv.mode = 'CLAW'; mv.swipeN = 0; mv.until = t + MELEE.claw.stepMs;
+      } else if (dist < 11 && t - mv.lastTail > MELEE.tail.cooldown) {
+        mv.mode = 'TELE_TAIL'; mv.until = t + MELEE.tail.teleMs; mv.lastTail = t;
+        showAura(g.position.x, g.position.z, MELEE.tail.r, MELEE.tail.teleMs, 0xffa030);
+      } else if (dist > 11 && t - mv.lastBreath > MELEE.breath.cooldown) {
+        mv.mode = 'TELE_BREATH'; mv.until = t + MELEE.breath.teleMs; mv.lastBreath = t;
+        state.emit('dangerTelegraph', { group: boss.inner });
       } else if (dist > 13 || Math.random() < 0.55) {       // 원거리: 돌진
         mv.mode = 'TELE_CHARGE'; mv.until = t + MELEE.charge.teleMs;
         showAura(g.position.x, g.position.z, 3.4, MELEE.charge.teleMs);
@@ -377,6 +412,75 @@ function updateMelee(dt) {
       // 엇박: 2타→3타 간격이 1.6배 (사또와 같은 문법)
       mv.until = t + MELEE.claw.stepMs * (mv.swipeN === 2 ? 1.6 : 1);
       if (mv.swipeN >= MELEE.claw.swipes) { mv.mode = 'RECOVER'; mv.until = t + MELEE.claw.recoverMs; }
+    }
+  } else if (mv.mode === 'TELE_BITE') {      // 근접: 목을 뒤로 당겼다가
+    crouchY = -0.3; tiltX = -0.22;
+    if (t >= mv.until) {
+      mv.mode = 'BITE'; mv.until = t + 160; mv.hitDone = false;
+    }
+  } else if (mv.mode === 'BITE') {           // 물어뜯기 — 전방 좁은 부채꼴 · 단발 고데미지
+    tiltX = 0.3; crouchY = 0.15;
+    if (!mv.hitDone) {
+      mv.hitDone = true;
+      const c = MELEE.bite;
+      const ang = Math.abs(((Math.atan2(_toP.x, _toP.z) - faceYaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      if (dist < c.r && ang < c.arcDeg * Math.PI / 360) damagePlayer(c.dmg, '해태의 이빨 — 옆으로 빠졌어야 했다');
+      const dirX = _toP.x / (dist || 1), dirZ = _toP.z / (dist || 1);
+      showAura(g.position.x + dirX * 2.0, g.position.z + dirZ * 2.0, 2.2, 220, 0xff3020);
+      state.emit('bossBite');
+    }
+    if (t >= mv.until) { mv.mode = 'RECOVER'; mv.until = t + MELEE.bite.recoverMs; }
+  } else if (mv.mode === 'TELE_TAIL') {      // 중거리: 몸을 비틀어 꼬리를 감는다
+    crouchY = -0.18; rollZ = Math.sin((mv.until - t) * 0.02) * 0.18;
+    if (t >= mv.until) {
+      const c = MELEE.tail;
+      shockwave(g.position.clone(), c.r);
+      burst(g.position.clone().setY(1.0), 26, 0xffa050, 4.6, 520, 0.45);
+      kick(2.4);
+      if (dist < c.r) damagePlayer(c.dmg, '해태의 꼬리 후리기 — 안쪽으로 파고들었어야 했다');
+      state.emit('bossTail');
+      mv.mode = 'RECOVER'; mv.until = t + c.recoverMs;
+    }
+  } else if (mv.mode === 'TELE_BREATH') {    // 원거리: 목을 부풀리고 증기를 모은다
+    crouchY = -0.1; tiltX = -0.16;
+    if (t >= mv.until) { mv.mode = 'BREATH'; mv.until = t + MELEE.breath.durMs; mv.nextTick = t; }
+  } else if (mv.mode === 'BREATH') {         // 증기 브레스 — 전방 원뿔 지속. 옆으로 비켜야 한다
+    tiltX = 0.1;
+    const c = MELEE.breath;
+    if (t >= mv.nextTick) {
+      mv.nextTick = t + c.tickMs;
+      const dirX = Math.sin(mv.yaw), dirZ = Math.cos(mv.yaw);
+      for (let s = 1; s <= 4; s++) {
+        const d = s * (c.range / 5);
+        burst(_v3.set(g.position.x + dirX * d, 1.4 + s * 0.1, g.position.z + dirZ * d),
+              5, 0x9fd8d4, 2.6, 520, 0.5);
+      }
+      const ang = Math.abs(((Math.atan2(_toP.x, _toP.z) - faceYaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      if (dist < c.range && ang < c.arcDeg * Math.PI / 360) damagePlayer(c.dmg, '증기 브레스 — 사선에서 비켜라');
+      state.emit('bossBreath');
+    }
+    if (t >= mv.until) { mv.mode = 'RECOVER'; mv.until = t + c.recoverMs; }
+  } else if (mv.mode === 'TELE_NOVA') {      // 필살기 예고 — 몸을 낮췄다가 부풀린다
+    const k = 1 - (mv.until - t) / MELEE.nova.teleMs;
+    crouchY = -0.55 + k * 0.9; tiltX = -0.25 + k * 0.35;
+    mv.bob += dts * (6 + k * 20);
+    if (t >= mv.until) { mv.mode = 'NOVA'; mv.ringN = 0; mv.nextTick = t; }
+  } else if (mv.mode === 'NOVA') {           // 3중 확장 링 — 반경이 커지므로 '멀리' 가 유일한 답
+    tiltX = 0.18;
+    if (t >= mv.nextTick && mv.ringN < MELEE.nova.rings) {
+      const c = MELEE.nova;
+      const R = c.r0 + c.dr * mv.ringN;
+      mv.ringN += 1;
+      mv.nextTick = t + c.gapMs;
+      shockwave(g.position.clone(), R);
+      burst(g.position.clone().setY(0.8), 18, 0xff5a2a, R * 0.9, 560, 0.5);
+      kick(3.0);
+      // 링 폭 안에 있으면 피격 (안쪽은 이미 지나갔고, 바깥은 아직)
+      if (Math.abs(dist - R) < 2.6) damagePlayer(c.dmg, '해태의 포효 — 링에 휩쓸렸다');
+      state.emit('bossNovaRing', mv.ringN);
+    }
+    if (mv.ringN >= MELEE.nova.rings && t >= mv.nextTick) {
+      mv.mode = 'RECOVER'; mv.until = t + MELEE.nova.recoverMs;
     }
   } else if (mv.mode === 'RECOVER') {
     crouchY = -0.2;

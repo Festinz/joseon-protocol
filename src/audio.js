@@ -54,6 +54,16 @@ export function initAudio() {
   state.on('sattoWave', () => sfxBoom(0.9));
   state.on('sattoCharge', () => sfxWhoosh());
   state.on('sattoDefeated', () => { sfxBoom(); setTimeout(sfxBoom, 500); });
+  // 사또 추가 패턴
+  state.on('sattoSweep', () => sfxBoom(0.75));
+  state.on('sattoBarrage', () => sfxWhistle());
+  state.on('sattoBombExploded', () => sfxBoom(0.8));
+  // 해태 추가 패턴
+  state.on('bossBite', () => sfxKill());
+  state.on('bossTail', () => sfxBoom(0.7));
+  state.on('bossBreath', () => sfxStatic());
+  state.on('bossNovaTelegraph', () => { sfxWarn(); setTimeout(sfxWarn, 420); setTimeout(sfxWarn, 840); });
+  state.on('bossNovaRing', () => sfxBoom(1.0));
   state.on('pickupTaken', () => sfxBlip());   // 드랍 아이템 획득
 }
 
