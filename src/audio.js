@@ -15,6 +15,7 @@ export function initAudio() {
   });
   // 게임 이벤트 → SFX
   state.on('shotFired', () => {
+    if (WEAPONS[state.currentWeapon]?.drawMs) { sfxWhoosh(); return; }   // 활 — 시위 튕김 (무소음 컨셉)
     if (WEAPONS[state.currentWeapon]?.silent) sfxShot(0.28, 1500);  // 활 — 낮은 시위 튕김
     else sfxShot();
   });

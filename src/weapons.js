@@ -72,6 +72,7 @@ function trySwitch(key) {
   if (!state.unlockedWeapons.includes(key) || key === state.currentWeapon) return;
   state.currentWeapon = key; switchingUntil = now() + 250;
   if (WEAPONS[key].melee) state.ads = false;   // 환도엔 조준경이 없다 (우클릭 = 강공)
+  if (!WEAPONS[key].drawMs) state.bowDraw = false;   // 활을 내리면 시위도 놓는다
   showWeapon(key);
   state.emit('weaponChanged', key);
 }

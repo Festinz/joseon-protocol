@@ -122,11 +122,16 @@ export function tryFire() {
     const blocked = victim.headOnly && part === 'hitBody';   // 방패: 15% 관통 (enemies 에서 감쇠)
     const weak = part !== 'hitBody';
     const dmg = cfg.dmg * (weak ? cfg.weakMult : 1) * state.comboMult;
-    victim.onHit(part, dmg, { weak, weapon: state.currentWeapon });
+    victim.onHit(part, dmg, { weak, weapon: state.currentWeapon, silent: cfg.silent });
     state.emit('shotHit', { point, weak, part });
     if (blocked) state.emit('shotBlockedByShield', { point });
   } else {
     state.combo = 0; state.comboMult = 1; state.emit('comboChanged');
+  }
+  // 활: 총알(순간 판정)이 아니라 화살이 날아가는 게 보여야 한다 — 시각 전용 투사체
+  if (cfg.drawMs) {
+    const to = point ? point.clone() : raycaster.ray.at(60, new THREE.Vector3());
+    state.emit('arrowShot', { from: _v3.clone(), to });
   }
 }
 

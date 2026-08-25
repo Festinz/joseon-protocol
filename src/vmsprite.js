@@ -20,6 +20,7 @@ let bobPhase = 0;
 let kickY = 0, kickR = 0;
 let override = null;         // { sprite, until, anim } — 단도/수류탄/마패 일시 연출
 let adsT = 0;
+let drawT = 0;   // 활 시위 당김 0..1
 let swayX = 0, swayY = 0, swayVX = 0, swayVY = 0; // 룩-스웨이: 시선 반대로 끌리다 스프링 복귀
 
 export function initVmSprite() {
@@ -82,9 +83,13 @@ export function updateVmSprite(dt) {
     if (t > override.until) { override = null; refresh(); }
   }
 
-  // ADS 보간 — 근접/투척물은 조준경 자체가 없다
-  const adsGoal = (state.ads && !WEAPONS[state.currentWeapon]?.melee) ? 1 : 0;
+  // ADS 보간 — 근접/활은 조준경 자체가 없다 (활은 우클릭 = 시위 당김)
+  const wcfg = WEAPONS[state.currentWeapon] || {};
+  const adsGoal = (state.ads && !wcfg.melee && !wcfg.drawMs) ? 1 : 0;
   adsT += (adsGoal - adsT) * Math.min(1, dts * 9);
+  // 시위 당김 보간
+  const drawGoal = (state.bowDraw && wcfg.drawMs) ? 1 : 0;
+  drawT += (drawGoal - drawT) * Math.min(1, dts * 7);
 
   // 룩-스웨이 (총이 시선을 한 박자 늦게 따라오는 관성) — 스프링-댐퍼
   const ldx = state._lookDX || 0, ldy = state._lookDY || 0;
@@ -159,6 +164,20 @@ export function updateVmSprite(dt) {
     }
   }
 
+  // ── 활 전용 자세 보정 ──
+  // bow.png(1100×638)는 활채가 화면을 가로질러 크로스헤어를 가렸다 → 축소 + 우하단으로 내림.
+  // 당김(drawT): 활을 몸쪽으로 끌며 살짝 세운다 + 팽팽한 미세 떨림 — "줌" 대신 이것이 조준感.
+  let wscale = 1, wx = 0, wy = 0, wr = 0;
+  if (wcfg.drawMs) {
+    wscale = 0.72;
+    wx = innerWidth * 0.055; wy = innerHeight * 0.055;
+    const tremor = drawT * Math.sin(t * 0.045) * 1.6;           // 팽팽함 — 고주파 저진폭
+    wx += drawT * (-innerWidth * 0.035) + tremor;
+    wy += drawT * (innerHeight * 0.012) + tremor * 0.6;
+    wr = drawT * -5;
+    wscale += drawT * 0.10;
+  }
+
   // ADS "견착": 총을 들어 올려 눈에 가져다 댄다 (배그 문법) — 중앙+위로 이동·확대·수평 정렬,
   // 눈에 닿는 마지막 구간에 총이 페이드아웃되며 스코프 렌즈가 커지며 선명해진다.
   // 미러는 #vmwrap scaleX(-1) 이 전담 — 여기선 손 부호 보정 없음. 화면공간인 스웨이만 wsign.
@@ -178,9 +197,9 @@ export function updateVmSprite(dt) {
   const aimTilt = -4.5 - 7 * eA;                 // 총구를 눈높이로 세움
   const swx = swayX * swayScale * wsign;
   img.style.transform =
-    `perspective(1000px) translate(${bobX + ax + adsX + swx}px, ${bobY + ay + adsY + kickY + crouchY + pitchY + swayY * swayScale}px) ` +
+    `perspective(1000px) translate(${bobX + ax + adsX + swx + wx}px, ${bobY + ay + adsY + kickY + crouchY + pitchY + swayY * swayScale + wy}px) ` +
     `rotateY(${aimYaw}deg) ` +
-    `rotate(${kickR + ar + aimTilt + pitchR + swx * 0.05}deg) scale(${scale + eA * 0.5})`;
+    `rotate(${kickR + ar + aimTilt + pitchR + swx * 0.05 + wr}deg) scale(${(scale + eA * 0.5) * wscale})`;
   // 눈에 닿는 순간(60%~92%) 총이 시야에서 사라진다
   img.style.opacity = eA < 0.6 ? 1 : Math.max(0, 1 - (eA - 0.6) / 0.32);
 

@@ -27,6 +27,25 @@ let muzzleLight = null, muzzleLightT = -1;
 let boomLight = null, boomLightT = -1; // 수류탄 폭발 플래시 (별도 1개 풀, 0.12s 감쇠)
 const gunTracers = []; // 적 연출탄 스트릭 풀
 const rings = [];      // 쇼크웨이브
+const arrows = [];     // 활 화살 (시각 전용 — 판정은 히트스캔이 이미 끝났다)
+const arrowPool = [];
+const ARROW_MS = 90;   // 60m 를 90ms — 빠르되 눈으로 좇을 수 있는 속도
+function makeArrow() {
+  const cached = arrowPool.pop();
+  if (cached) return cached;
+  const g = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.72, 5),
+    new THREE.MeshBasicMaterial({ color: 0x8a6a42, fog: false }));
+  shaft.rotation.x = Math.PI / 2;
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 5),
+    new THREE.MeshBasicMaterial({ color: 0x2b2b30, fog: false }));
+  tip.rotation.x = Math.PI / 2; tip.position.z = 0.4;
+  const fl = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.09, 0.12),
+    new THREE.MeshBasicMaterial({ color: 0x1a1a1e, fog: false }));
+  fl.position.z = -0.33;
+  g.add(shaft, tip, fl);
+  return g;
+}
 const scorches = [];   // 바닥 그을음 데칼 풀 (동시 최대 6, 8s 페이드)
 const SCORCH_MAX = 6, SCORCH_MS = 8000;
 let scorchGeo = null;  // 공유 CircleGeometry 1개
@@ -57,6 +76,13 @@ export function initVfx(sc) {
   scene.add(points);
   pLife.fill(0);
 
+  state.on('arrowShot', ({ from, to }) => {
+    const m = makeArrow();
+    m.position.copy(from);
+    m.lookAt(to);
+    scene.add(m);
+    arrows.push({ m, from: from.clone(), to: to.clone(), t0: now() });
+  });
   // 이벤트 구독
   state.on('shotFired', ({ muzzle }) => {
     burst(muzzle, 4, 0xffd890, 1.2, 120, 0.22); kick(0.5);
@@ -191,6 +217,13 @@ function spawnGunTracer(from) {
 }
 
 export function updateVfx(dt) {
+  // 화살 비행 (선형 — 60m 급이라 낙차 생략)
+  for (let i = arrows.length - 1; i >= 0; i--) {
+    const a = arrows[i];
+    const k = (now() - a.t0) / ARROW_MS;
+    if (k >= 1) { scene.remove(a.m); arrowPool.push(a.m); arrows.splice(i, 1); continue; }
+    a.m.position.lerpVectors(a.from, a.to, k);
+  }
   // 파티클
   for (let i = 0; i < MAXP; i++) {
     if (pLife[i] <= 0) { pPos[i * 3 + 1] = -999; continue; }

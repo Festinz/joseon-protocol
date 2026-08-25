@@ -41,13 +41,15 @@ export function initInput() {
     if (e.button === 0) { lmbHeld = true; state.emit('firePressed'); }
     if (e.button === 2) {                                         // 우클릭 — 든 무기에 따라 갈린다
       rmbHeld = true;
-      if (WEAPONS[state.currentWeapon]?.melee) { state.emit('heavyPressed'); return; } // 환도: 강공
+      const wc = WEAPONS[state.currentWeapon];
+      if (wc?.melee) { state.emit('heavyPressed'); return; }      // 환도: 강공
+      if (wc?.drawMs) { state.bowDraw = true; return; }           // 활: 시위 당김 (조준경 없음)
       state.ads = true;                                           // 총기: 견착(ADS)
     }
   });
   document.addEventListener('mouseup', (e) => {
     if (e.button === 0) lmbHeld = false;
-    if (e.button === 2) { rmbHeld = false; state.ads = false; }
+    if (e.button === 2) { rmbHeld = false; state.ads = false; state.bowDraw = false; }
   });
 
   document.addEventListener('pointerlockchange', () => {

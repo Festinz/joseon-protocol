@@ -29,7 +29,7 @@ export const state = {
 
   items: { tonic: ITEMS.tonic.start, grenade: ITEMS.grenade.start },
   smokeUntil: 0,                  // 연막은 제거됨 — 항상 0 (명중탄 차단 검사가 아직 읽는다)
-  ads: false, wheelOpen: false,
+  ads: false, bowDraw: false, wheelOpen: false,
 
   // 회피 (Ctrl)
   evading: false, evadeUntil: 0, evadeReadyAt: 0,
@@ -80,7 +80,7 @@ export function resetRun() {
   state.unlockedWeapons = ['rifle', 'hwando'];
   state.items = { tonic: ITEMS.tonic.start, grenade: ITEMS.grenade.start };
   state.evading = false; state.evadeUntil = 0; state.evadeReadyAt = 0;
-  state.ads = false; state.wheelOpen = false;
+  state.ads = false; state.bowDraw = false; state.wheelOpen = false;
   state.smokeUntil = 0;
   state.ult = 0; state.ultCasting = false;
   state.score = 0; state.combo = 0; state.comboMult = 1;
