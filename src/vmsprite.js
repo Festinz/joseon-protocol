@@ -169,12 +169,15 @@ export function updateVmSprite(dt) {
   // 당김(drawT): 활을 몸쪽으로 끌며 살짝 세운다 + 팽팽한 미세 떨림 — "줌" 대신 이것이 조준感.
   let wscale = 1, wx = 0, wy = 0, wr = 0;
   if (wcfg.drawMs) {
-    wscale = 0.72;
-    wx = innerWidth * 0.055; wy = innerHeight * 0.055;
+    // 활은 '세워 든' 자세가 기본 — 원본 아트가 수평으로 누워 있어 좌·우견착 모두
+    // 활채가 바닥으로 처져 보였다. -26° 로 일으켜 상단 림이 크로스헤어 쪽을 향하게 한다.
+    wscale = 0.78;
+    wr = -26;
+    wx = innerWidth * 0.07; wy = innerHeight * 0.02;
     const tremor = drawT * Math.sin(t * 0.045) * 1.6;           // 팽팽함 — 고주파 저진폭
-    wx += drawT * (-innerWidth * 0.035) + tremor;
-    wy += drawT * (innerHeight * 0.012) + tremor * 0.6;
-    wr = drawT * -5;
+    wx += drawT * (-innerWidth * 0.03) + tremor;
+    wy += drawT * (innerHeight * 0.008) + tremor * 0.6;
+    wr += drawT * -6;
     wscale += drawT * 0.10;
   }
 
