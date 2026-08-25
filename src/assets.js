@@ -24,6 +24,12 @@ export const MAT = {
   PROXY: new THREE.MeshBasicMaterial({ visible: false }),
 };
 
+// ── 환경 디테일 전용 공유 재질 (메시마다 새 재질 생성 금지 — 아래 인스턴스만 재사용) ──
+const MAT_SACK = flat(0x6b5a3a, { roughness: 0.95 });                    // 가마니(볏짚)
+const MAT_SIL_NEAR = new THREE.MeshBasicMaterial({ color: 0x1a1e33 });   // 미드그라운드 실루엣(근)
+const MAT_SIL_MID  = new THREE.MeshBasicMaterial({ color: 0x141a2e });   // (중)
+const MAT_SIL_FAR  = new THREE.MeshBasicMaterial({ color: 0x0f1428 });   // (원)
+
 // ── 파츠 병합 헬퍼: [{geo, mat, x,y,z, rx,ry,rz, sx,sy,sz}] → 단일 Mesh(멀티 머티리얼) ──
 const _m4 = new THREE.Matrix4(), _e = new THREE.Euler(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
 export function mergeParts(parts) {
@@ -263,33 +269,61 @@ export function buildCoverProp(kind) {
       add(G.box, MAT.WOOD, -0.55, 0.5, 0, 1.0, 1.0, 0.8);
       add(G.box, MAT.WOOD, 0.55, 0.45, 0.1, 1.0, 0.9, 0.8, 0.08);
       add(G.box, MAT.BRASS, -0.55, 1.02, 0, 1.04, 0.06, 0.84);
+      // 디테일 (시각 전용): 황동 볼트 밴드 + 모서리 철판 + 상단 철 트림
+      add(G.box, MAT.BRASS, -0.55, 0.5, 0.41, 1.02, 0.07, 0.04);
+      add(G.box, MAT.IRON, -1.03, 0.45, 0, 0.06, 0.92, 0.82);
+      add(G.box, MAT.IRON, 0.55, 0.92, 0.1, 1.06, 0.05, 0.86, 0.08);
       break;
     case 'lowWall': // 낮은 담장 (TOP) — 기와 캡
       add(G.box, MAT.STONE, 0, 0.48, 0, 2.6, 0.96, 0.5);
       add(G.box, MAT.TILE, 0, 1.01, 0, 2.8, 0.12, 0.7);
+      // 디테일: 하단 장대석 트림 + 기와 용마루 + 끝단 석주
+      add(G.box, MAT.STONE, 0, 0.14, 0, 2.7, 0.28, 0.62);
+      add(G.cyl, MAT.TILE, 0, 1.1, 0, 0.17, 2.85, 0.17).rotation.z = Math.PI / 2;
+      add(G.box, MAT.STONE, -1.25, 0.62, 0, 0.34, 1.24, 0.6);
       break;
     case 'gateJambL': case 'gateJambR': { // 관문 문설주 (세로 석축 + 증기 배관)
       add(G.box, MAT.STONE, 0, 1.5, 0, 1.1, 3.0, 0.9);
       add(G.box, MAT.TILE, 0, 3.1, 0, 1.4, 0.25, 1.2);
       add(G.cyl, MAT.BRASS, kind === 'gateJambL' ? 0.5 : -0.5, 1.6, 0.4, 0.12, 3.0, 0.12);
+      // 디테일: 황동 볼트 밴드 + 배관 플랜지 링 + 모서리 철판
+      add(G.box, MAT.BRASS, 0, 2.5, 0.47, 1.14, 0.14, 0.06);
+      add(G.torus, MAT.BRASS, kind === 'gateJambL' ? 0.5 : -0.5, 2.3, 0.4, 0.22, 0.22, 0.22).rotation.x = Math.PI / 2;
+      add(G.box, MAT.IRON, kind === 'gateJambL' ? -0.56 : 0.56, 1.2, 0, 0.06, 2.4, 0.92);
       break;
     }
     case 'pillarCorner': // 단청 모서리 기둥 (L피크)
       add(G.cyl, MAT.DANCHEONG_R, 0, 1.7, 0, 0.85, 3.4, 0.85);
       add(G.box, MAT.DANCHEONG_G, 0, 3.5, 0, 1.5, 0.3, 1.5);
       add(G.box, MAT.STONE, 0, 0.15, 0, 1.2, 0.3, 1.2);
+      // 디테일: 기둥 상·하단 황동 링 + 기단 볼트 밴드
+      add(G.torus, MAT.BRASS, 0, 0.42, 0, 0.92, 0.92, 0.92).rotation.x = Math.PI / 2;
+      add(G.torus, MAT.BRASS, 0, 3.2, 0, 0.9, 0.9, 0.9).rotation.x = Math.PI / 2;
+      add(G.box, MAT.BRASS, 0, 0.15, 0.62, 1.0, 0.1, 0.05);
       break;
     case 'wallCorner': // 담 모서리 (R피크)
       add(G.box, MAT.STONE, -0.6, 1.3, 0, 1.6, 2.6, 0.6);
       add(G.box, MAT.TILE, -0.6, 2.7, 0, 1.9, 0.18, 0.85);
+      // 디테일: 하단 장대석 트림 + 기와 용마루 + 모서리 철판
+      add(G.box, MAT.STONE, -0.6, 0.14, 0, 1.7, 0.28, 0.68);
+      add(G.cyl, MAT.TILE, -0.6, 2.79, 0, 0.15, 1.95, 0.15).rotation.z = Math.PI / 2;
+      add(G.box, MAT.IRON, 0.22, 1.3, 0, 0.07, 2.5, 0.56);
       break;
     case 'brokenAltar': // 무너진 제단 (TOP, 보스룸 중앙)
       add(G.box, MAT.STONE, 0, 0.45, 0, 2.2, 0.9, 1.0);
       add(G.box, MAT.STONE, -0.5, 1.05, 0.1, 1.0, 0.3, 0.8, 0.2);
+      // 디테일: 흩어진 석재 + 쓰러진 향로
+      add(G.box, MAT.STONE, 1.35, 0.12, 0.4, 0.45, 0.24, 0.35, 0.5);
+      add(G.box, MAT.STONE, -1.35, 0.1, -0.35, 0.4, 0.2, 0.3, 0.9);
+      add(G.cyl, MAT.BRASS, 0.4, 1.33, 0.1, 0.26, 0.26, 0.26);
       break;
     case 'rubbleL': case 'rubbleR': // 낙석/기둥 잔해 (L/R)
       add(G.box, MAT.STONE, 0, 0.8, 0, 1.3, 1.6, 0.9, 0.15);
       add(G.cyl, MAT.DANCHEONG_R, kind === 'rubbleL' ? -0.7 : 0.7, 0.5, 0.3, 0.5, 2.4, 0.5).rotation.z = Math.PI / 2.4;
+      // 디테일: 떨어진 기와 더미 + 철 보강대 + 잔석
+      add(G.box, MAT.TILE, kind === 'rubbleL' ? 0.75 : -0.75, 0.08, 0.55, 0.5, 0.14, 0.4, 0.7);
+      add(G.box, MAT.IRON, 0, 0.95, 0.47, 1.1, 0.1, 0.05, 0.15);
+      add(G.box, MAT.STONE, kind === 'rubbleL' ? 1.0 : -1.0, 0.16, -0.3, 0.45, 0.32, 0.4, 0.4);
       break;
   }
   return g;
@@ -341,6 +375,48 @@ export function buildGobungi() {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// 그라운디드 클러터 키트 — 파츠 배열 생성기 (mergeParts 로 클러스터당 1메시)
+// 시각 전용: 충돌·LOS 없음. 벽 가까이 뭉쳐 배치 (Witchfire 스타일 밀도)
+// ══════════════════════════════════════════════════════════════════
+const kitCrates = () => [                                                 // 나무 상자 더미 (2+1단)
+  { geo: G.box, mat: MAT.WOOD, x: -0.45, y: 0.36, sx: 0.72, sy: 0.72, sz: 0.72 },
+  { geo: G.box, mat: MAT.WOOD, x: 0.42, y: 0.3, z: 0.18, ry: 0.35, sx: 0.6, sy: 0.6, sz: 0.6 },
+  { geo: G.box, mat: MAT.WOOD, x: -0.25, y: 0.95, z: 0.05, ry: -0.2, sx: 0.55, sy: 0.5, sz: 0.55 },
+  { geo: G.box, mat: MAT.BRASS, x: -0.45, y: 0.74, sx: 0.76, sy: 0.045, sz: 0.76 },
+];
+const kitBarrel = () => [                                                 // 나무 통 + 철 밴드
+  { geo: G.cyl, mat: MAT.WOOD, y: 0.42, sx: 0.62, sy: 0.84, sz: 0.62 },
+  { geo: G.torus, mat: MAT.IRON, y: 0.2, rx: Math.PI / 2, sx: 0.66, sy: 0.66, sz: 0.66 },
+  { geo: G.torus, mat: MAT.IRON, y: 0.62, rx: Math.PI / 2, sx: 0.64, sy: 0.64, sz: 0.64 },
+  { geo: G.cyl, mat: MAT.BLACK, y: 0.85, sx: 0.5, sy: 0.04, sz: 0.5 },
+];
+const kitSacks = () => [                                                  // 가마니 더미
+  { geo: G.sphere, mat: MAT_SACK, x: -0.35, y: 0.22, sx: 0.75, sy: 0.42, sz: 0.55 },
+  { geo: G.sphere, mat: MAT_SACK, x: 0.3, y: 0.2, z: 0.15, ry: 0.5, sx: 0.7, sy: 0.38, sz: 0.5 },
+  { geo: G.sphere, mat: MAT_SACK, x: -0.05, y: 0.52, z: 0.05, ry: 0.9, sx: 0.68, sy: 0.36, sz: 0.5 },
+];
+const kitCart = () => [                                                   // 부서진 수레 (기운 짐칸 + 빠진 바퀴)
+  { geo: G.box, mat: MAT.WOOD, y: 0.55, rz: 0.18, rx: -0.06, sx: 1.7, sy: 0.14, sz: 1.0 },
+  { geo: G.box, mat: MAT.WOOD, x: -0.8, y: 0.65, rz: 0.18, sx: 0.1, sy: 0.4, sz: 1.0 },
+  { geo: G.torus, mat: MAT.WOOD, x: 0.75, y: 0.42, sx: 0.84, sy: 0.84, sz: 0.84 },
+  { geo: G.torus, mat: MAT.WOOD, x: -0.6, y: 0.06, z: 0.7, rx: Math.PI / 2, sx: 0.8, sy: 0.8, sz: 0.8 },
+  { geo: G.cyl, mat: MAT.WOOD, x: 0.3, y: 0.35, z: -0.75, rx: 0.9, sx: 0.08, sy: 1.4, sz: 0.08 },
+];
+const kitRubble = () => [                                                 // 잔해 무더기 (석재 + 기와)
+  { geo: G.box, mat: MAT.STONE, y: 0.25, ry: 0.4, rz: 0.1, sx: 0.9, sy: 0.5, sz: 0.7 },
+  { geo: G.box, mat: MAT.STONE, x: 0.55, y: 0.18, z: 0.3, ry: -0.5, sx: 0.6, sy: 0.36, sz: 0.5 },
+  { geo: G.box, mat: MAT.STONE, x: -0.4, y: 0.55, z: 0.1, ry: 0.9, rz: -0.15, sx: 0.5, sy: 0.4, sz: 0.45 },
+  { geo: G.cone, mat: MAT.STONE, x: 0.1, y: 0.75, sx: 0.5, sy: 0.5, sz: 0.5 },
+  { geo: G.box, mat: MAT.TILE, x: -0.15, y: 0.06, z: 0.55, ry: 0.7, sx: 0.5, sy: 0.1, sz: 0.35 },
+];
+const kitValve = () => [                                                  // 벽 증기 밸브 (소형 이미시브 포인트, 벽면 밀착형)
+  { geo: G.cyl, mat: MAT.BRASS, y: 1.0, z: 0.05, rx: Math.PI / 2, sx: 0.1, sy: 0.3, sz: 0.1 },
+  { geo: G.torus, mat: MAT.BRASS, y: 1.0, z: 0.16, sx: 0.28, sy: 0.28, sz: 0.28 },   // 돌출 ≤0.32m — 벽면 카메라 클리핑 여유 확보
+  { geo: G.cyl, mat: MAT.BRASS, y: 0.55, sx: 0.08, sy: 0.95, sz: 0.08 },
+  { geo: G.sphere, mat: MAT.STEAM, y: 0.78, z: 0.08, sx: 0.07, sy: 0.07, sz: 0.07 },
+];
+
+// ══════════════════════════════════════════════════════════════════
 // 환경 — 섹션 드레싱 (야간 팔레트 + 등롱 + 실루엣 백드롭)
 // ══════════════════════════════════════════════════════════════════
 export function buildEnvironment() {
@@ -374,6 +450,19 @@ export function buildEnvironment() {
 
   // 광화문 광장 (z 0 ~ -40): 개활 + 측면 담장 + 광화문 실루엣
   addWallRun(-16, 4, -40); addWallRun(16, 4, -40);
+  { // 담장 디테일 (시각 전용 1메시): 하단 장대석 트림 + 6.6m 간격 석주 + 기와 캡 용마루
+    const wp = [];
+    for (const side of [-1, 1]) {
+      const x = side * 16;
+      wp.push({ geo: G.box, mat: MAT.STONE, x, y: 0.28, z: -18, sx: 1.16, sy: 0.56, sz: 44 });
+      wp.push({ geo: G.cyl, mat: MAT.TILE, x, y: 3.46, z: -18, rx: Math.PI / 2, sx: 0.34, sy: 44, sz: 0.34 });
+      for (let z = 2; z >= -38; z -= 6.6) {
+        wp.push({ geo: G.box, mat: MAT.STONE, x, y: 1.55, z, sx: 1.3, sy: 3.1, sz: 1.0 });
+        wp.push({ geo: G.box, mat: MAT.TILE, x, y: 3.24, z, sx: 1.5, sy: 0.22, sz: 1.2 });
+      }
+    }
+    env.add(mergeParts(wp));
+  }
   addLantern(-7, -6); addLantern(7, -14); addLantern(-7, -30); addLantern(7, -34);
   { // 폭풍의 관문 = 광화문 — 아치는 진짜 개구부 (S3 에서 이 안을 향해 사격)
     const gate = new THREE.Group(); gate.position.set(0, 0, -52); gate.name = 'gateProc';
@@ -443,9 +532,86 @@ export function buildEnvironment() {
       () => new THREE.TextureLoader().load('assets/hall_billboard.png', (tex) => applyHallBillboard(tex, 34, true, 0x7a86ac), undefined, () => {})); }
   addLantern(-6, -114); addLantern(6, -114);
 
+  { // 근정전 월대 — 실물 2단 석축 + 중앙 어계(계단) 암시 (시각 전용 1메시).
+    // 빌보드(z -141.5)와 전투 공간을 물리로 연결. 전투 경기장(z > -139) 침범 금지: 전 파츠 z ≤ -139.5
+    const wd = [
+      { geo: G.box, mat: MAT.STONE, y: 0.45, z: -140.4, sx: 30, sy: 0.9, sz: 1.8 },     // 1단 석축
+      { geo: G.box, mat: MAT.STONE, y: 1.25, z: -140.8, sx: 26, sy: 0.7, sz: 1.2 },     // 2단 석축
+      { geo: G.box, mat: MAT.STONE, y: 0.15, z: -139.75, sx: 4.6, sy: 0.3, sz: 0.5 },   // 중앙 계단 3단
+      { geo: G.box, mat: MAT.STONE, y: 0.45, z: -140.0, sx: 4.6, sy: 0.3, sz: 0.5 },
+      { geo: G.box, mat: MAT.STONE, y: 0.75, z: -140.25, sx: 4.6, sy: 0.3, sz: 0.5 },
+      { geo: G.box, mat: MAT.STONE, x: -2.55, y: 0.55, z: -140.15, rx: -0.5, sx: 0.4, sy: 0.35, sz: 1.1 }, // 소맷돌
+      { geo: G.box, mat: MAT.STONE, x: 2.55, y: 0.55, z: -140.15, rx: -0.5, sx: 0.4, sy: 0.35, sz: 1.1 },
+      { geo: G.box, mat: MAT.STONE, x: -12.6, y: 1.95, z: -140.7, sx: 0.35, sy: 0.8, sz: 0.35 },  // 엄지기둥
+      { geo: G.box, mat: MAT.STONE, x: -6.5, y: 1.9, z: -140.7, sx: 0.3, sy: 0.7, sz: 0.3 },
+      { geo: G.box, mat: MAT.STONE, x: 6.5, y: 1.9, z: -140.7, sx: 0.3, sy: 0.7, sz: 0.3 },
+      { geo: G.box, mat: MAT.STONE, x: 12.6, y: 1.95, z: -140.7, sx: 0.35, sy: 0.8, sz: 0.35 },
+      { geo: G.cyl, mat: MAT.BRASS, x: -8.5, y: 1.15, z: -139.9, sx: 0.5, sy: 0.5, sz: 0.5 },     // 청동 정(화로) 한 쌍
+      { geo: G.cyl, mat: MAT.BRASS, x: 8.5, y: 1.15, z: -139.9, sx: 0.5, sy: 0.5, sz: 0.5 },
+      { geo: G.cyl, mat: MAT.STEAM, x: -8.5, y: 1.42, z: -139.9, sx: 0.3, sy: 0.06, sz: 0.3 },    // 화로 불씨 (절제 이미시브)
+      { geo: G.cyl, mat: MAT.STEAM, x: 8.5, y: 1.42, z: -139.9, sx: 0.3, sy: 0.06, sz: 0.3 },
+    ];
+    env.add(mergeParts(wd));
+  }
+
   // 원경 산 실루엣
   const hills = new THREE.Mesh(new THREE.PlaneGeometry(300, 40), new THREE.MeshBasicMaterial({ color: 0x0d1020 }));
   hills.position.set(0, 12, -160); env.add(hills);
+
+  // ── 미드그라운드 실루엣 레이어 (병풍감 해소): 측면 담장 너머 전각 지붕 볼륨 5채 ──
+  // 하늘 돔·원경 산과 빌보드 사이의 깊이 층. 거리별로 더 어두운 재질 (fog 가 추가 층 분리)
+  const addPavilionSil = (x, z, w, bodyH, roofH, mat, ry = 0) => {
+    const d = w * 0.6;
+    const m = mergeParts([
+      { geo: G.box, mat, y: bodyH / 2, sx: w, sy: bodyH, sz: d },                                   // 몸체
+      { geo: G.box, mat, y: bodyH + 0.3, sx: w * 1.3, sy: 0.6, sz: d * 1.35 },                      // 처마선
+      { geo: G.box, mat, x: -w * 0.28, y: bodyH + 0.75 + roofH * 0.35, rz: 0.4, sx: w * 0.62, sy: 0.35, sz: d * 1.1 },  // 지붕 경사(좌)
+      { geo: G.box, mat, x: w * 0.28, y: bodyH + 0.75 + roofH * 0.35, rz: -0.4, sx: w * 0.62, sy: 0.35, sz: d * 1.1 },  // 지붕 경사(우)
+      { geo: G.box, mat, y: bodyH + roofH + 0.55, sx: w * 0.46, sy: 0.45, sz: d * 0.5 },            // 용마루
+    ]);
+    m.position.set(x, 0, z); m.rotation.y = ry; env.add(m);
+  };
+  addPavilionSil(-27, -38, 13, 4.5, 2.4, MAT_SIL_NEAR, 0.06);
+  addPavilionSil(26, -55, 12, 4.2, 2.2, MAT_SIL_NEAR, -0.08);
+  addPavilionSil(-35, -76, 18, 6.0, 3.0, MAT_SIL_MID, -0.05);
+  addPavilionSil(34, -98, 19, 6.5, 3.2, MAT_SIL_MID, 0.05);
+  addPavilionSil(-29, -124, 13, 5.4, 2.6, MAT_SIL_FAR, 0.08);
+
+  // ── 그라운디드 클러터 (시각 전용, 클러스터당 1메시) ──
+  // 배치 규칙: 벽 가까이 뭉치기 · 동선(광장 x -5..5 / 통로 x -4..4 / 회랑·보스룸 중앙) 및 COVERS 반경 1.5m 회피
+  const addClutter = (kit, x, z, ry = 0) => {
+    const m = mergeParts(kit()); m.position.set(x, 0, z); m.rotation.y = ry; env.add(m);
+  };
+  // 광장 (z 0..-40, 담장 안쪽면 x ±15.6)
+  addClutter(kitCrates, -14.2, -7, 0.3);
+  addClutter(kitBarrel, -13.3, -8.4);
+  addClutter(kitValve, -15.5, -18, Math.PI / 2);
+  addClutter(kitSacks, -13.8, -23.5, 0.7);
+  addClutter(kitRubble, -14, -36.5, 0.6);
+  addClutter(kitCart, 13.6, -11, -0.4);
+  addClutter(kitCrates, 14.2, -19.5, 1.1);
+  addClutter(kitBarrel, 13.4, -20.9);
+  addClutter(kitValve, 15.5, -27, -Math.PI / 2);
+  addClutter(kitSacks, 13.8, -30.5, -0.5);
+  // 관문 통로 (벽면 밀착 밸브만 — 동선 침범 금지)
+  addClutter(kitValve, -4.08, -58, Math.PI / 2);
+  addClutter(kitValve, 4.08, -64.5, -Math.PI / 2);
+  // 통로→회랑 전환부 모퉁이
+  addClutter(kitCrates, -10.5, -70.8, 0.2);
+  // 회랑 홀 (z -72..-112, 벽 안쪽면 x -11.55 / 9.55 — 기둥·COVERS 회피)
+  addClutter(kitCrates, -10.8, -76, 0.4);
+  addClutter(kitBarrel, -10.9, -77.4);
+  addClutter(kitValve, 9.45, -86, -Math.PI / 2);
+  addClutter(kitCart, -10.4, -91, 0.3);
+  addClutter(kitRubble, 8.6, -97.5, 1.2);
+  addClutter(kitCrates, 8.7, -108.5, -0.3);
+  // 보스룸 가장자리 (z -113..-139, 벽 안쪽면 x ±19.55 — 중앙·월대 회피)
+  addClutter(kitRubble, -17.5, -117, 0.5);
+  addClutter(kitCrates, -18, -126, 0.8);
+  addClutter(kitBarrel, -17.1, -127.5);
+  addClutter(kitCart, 17.3, -119, -0.5);
+  addClutter(kitRubble, 17.6, -130, 1.4);
+  addClutter(kitValve, -19.45, -133, Math.PI / 2);
 
   // ── (자유이동판) 낮은 엄폐 프롭 — leveldata.COVERS 가 시각·사선의 단일 진실 ──
   for (const c of COVERS) {
@@ -508,9 +674,9 @@ export function openGateVisual(id) {
 // ══════════════════════════════════════════════════════════════════
 const gltfLoader = new GLTFLoader();
 export const REGISTRY = {
-  vm_rifle:   { build: buildRifleVM,   glb: 'assets/models/vm_rifle.glb' },
-  vm_carbine: { build: buildCarbineVM, glb: 'assets/models/vm_carbine.glb' },
-  vm_ritual:  { build: buildRitualVM,  glb: 'assets/models/vm_ritual.glb' },
+  vm_rifle:   { build: buildRifleVM,   glb: null },  // 3D 뷰모델은 스프라이트로 대체됨 — GLB 로드 불필요
+  vm_carbine: { build: buildCarbineVM, glb: null },
+  vm_ritual:  { build: buildRitualVM,  glb: null },
   gobungi:    { build: buildGobungi,   glb: null },  // 포탑/코어 판정 계층 유지 위해 절차 고정 (외형 파츠만 GLB 덧붙임 가능)
 };
 

@@ -46,7 +46,7 @@ export function roofTileTex() {
   });
 }
 
-// 담장 석축
+// 담장 석축 — 가로 장대석 줄눈 강조 + 미세 노이즈 점 (야간 근접 판독성)
 export function stoneWallTex() {
   return canvas(128, 128, (x) => {
     x.fillStyle = '#55555e'; x.fillRect(0, 0, 128, 128);
@@ -56,8 +56,17 @@ export function stoneWallTex() {
         const s = 78 + Math.floor(Math.random() * 26);
         x.fillStyle = `rgb(${s},${s-3},${s-9})`;
         x.fillRect(px + 1, y + 1, 30, 18);
+        x.fillStyle = 'rgba(255,255,255,0.10)';   // 각 단 상단 캐치라이트
+        x.fillRect(px + 1, y + 1, 30, 2);
       }
+      x.fillStyle = 'rgba(10,10,16,0.6)';          // 가로 줄눈 (장대석 수평 라인 강조)
+      x.fillRect(0, y + 19, 128, 2);
       y += 20; off = off ? 0 : 16;
+    }
+    for (let i = 0; i < 300; i++) {                // 미세 노이즈 점 (풍화·이끼 얼룩)
+      const nx = Math.random() * 128, ny = Math.random() * 128;
+      x.fillStyle = Math.random() < 0.55 ? 'rgba(0,0,0,0.16)' : 'rgba(255,255,255,0.08)';
+      x.fillRect(nx, ny, Math.random() < 0.2 ? 2 : 1, 1);
     }
   });
 }

@@ -75,16 +75,28 @@ function rollKind() {
   return r < 0.55 ? 'ammo' : r < 0.90 ? 'heal' : 'grenade';
 }
 
-function spawnDrop(a) {
-  if (!scene || Math.random() > DROP_CHANCE) return;
+function spawnAt(x, z, kind) {
+  if (!scene) return;
   if (pickups.length >= MAX_PICKUPS) removeAt(0);   // 가장 오래된 것 제거
-  const kind = rollKind();
   const g = makeGroup(kind);
   const ang = Math.random() * Math.PI * 2, rad = Math.random() * 0.5;
-  g.position.set(a.group.position.x + Math.cos(ang) * rad, BASE_Y, a.group.position.z + Math.sin(ang) * rad);
+  g.position.set(x + Math.cos(ang) * rad, BASE_Y, z + Math.sin(ang) * rad);
   g.userData.ring.position.y = 0.02 - BASE_Y;       // 링은 항상 바닥에 (그룹 바운스 상쇄는 update 에서)
   scene.add(g);
   pickups.push({ kind, group: g, born: now(), seed: Math.random() * 10 });
+}
+
+function spawnDrop(a) {
+  if (Math.random() > DROP_CHANCE) return;
+  spawnAt(a.group.position.x, a.group.position.z, rollKind());
+}
+
+// 보스전 보상 경제 — 확정 드랍 (플레이어 주변 2m 링)
+function bossReward(kinds) {
+  for (let i = 0; i < kinds.length; i++) {
+    const ang = (i / kinds.length) * Math.PI * 2 + Math.random();
+    spawnAt(rig.dolly.position.x + Math.cos(ang) * 2.2, rig.dolly.position.z + Math.sin(ang) * 2.2, kinds[i]);
+  }
 }
 
 // ── 획득 효과 ────────────────────────────────────────────────────────
@@ -125,6 +137,9 @@ export function initPickups(sceneRef) {
   if (!A) buildAssets();
   state.on('enemyKilled', spawnDrop);
   state.on('playerDead', clearPickups);
+  state.on('turretDestroyed', () => bossReward(['ammo']));                 // 포탑 격파 = 탄약 보급
+  state.on('mulgitDefeated', () => bossReward(['heal', 'ammo', 'grenade']));
+  state.on('bossFinale', () => bossReward(['heal', 'ammo']));             // 해태 최종 페이즈 돌입
 }
 
 export function updatePickups(dt) {
