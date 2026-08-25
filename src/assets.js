@@ -537,7 +537,9 @@ export function buildEnvironment() {
       baseL.position.z = baseR.position.z = -1.4; // 빌보드 뒤(더 먼 쪽)로 — 측면 깊이감 담당
     };
     // 실사 광화문은 현대 빌딩·인파가 프레임에 껴서 부적합 — Gemini 컨셉 아트 유지
-    new THREE.TextureLoader().load('assets/gate_billboard.png', (tex) => applyGateBillboard(tex, 18.5), undefined, () => {});
+    // (palace.glb 가 로드되면 이 빌보드는 걸지 않는다 — 아래 palace 로더 참조)
+    if (!window.__palaceOK) new THREE.TextureLoader().load('assets/gate_billboard.png', (tex) => { if (!window.__palaceOK) applyGateBillboard(tex, 18.5); }, undefined, () => {});
+    env.userData.gateProc = gate;
     // 관문 너머 통로 (S3 교전 공간): 좁은 벽 + 등롱
     const inL = new THREE.Mesh(G.box, MAT.STONE); inL.scale.set(0.8, 3.2, 16); inL.position.set(-4.5, 1.6, -61); env.add(inL);
     const inR = inL.clone(); inR.position.x = 4.5; env.add(inR);
@@ -577,12 +579,34 @@ export function buildEnvironment() {
       env.add(plane);
       back.visible = gear.visible = boiler.visible = false;
     };
-    // 실사 근정전 (위키미디어 CC — 야간 그레이드 컷아웃) 우선, 실패 시 Gemini 아트
-    new THREE.TextureLoader().load('assets/real_geunjeongjeon_cut.png?v=1',
-      (tex) => applyHallBillboard(tex, 46, false, 0xcdd4ea),  // 이미 야간 그레이드 — 옅은 틴트만
+    // 실사 근정전 빌보드 — palace.glb 실패 시에만 (폴백 체인 유지)
+    if (!window.__palaceOK) new THREE.TextureLoader().load('assets/real_geunjeongjeon_cut.png?v=1',
+      (tex) => { if (!window.__palaceOK) applyHallBillboard(tex, 46, false, 0xcdd4ea); },
       undefined,
-      () => new THREE.TextureLoader().load('assets/hall_billboard.png', (tex) => applyHallBillboard(tex, 34, true, 0x7a86ac), undefined, () => {})); }
+      () => new THREE.TextureLoader().load('assets/hall_billboard.png', (tex) => applyHallBillboard(tex, 34, true, 0x7a86ac), undefined, () => {}));
+    env.userData.bossBack = [back, gear, boiler]; }
   addLantern(-6, -114); addLantern(6, -114);
+
+  // ── 경복궁 실 지오메트리 (Blender 헤드리스 산출) ─────────────────
+  // 광화문 문루·근정문·근정전·행각·품계석. 로드되면 해당 자리의 빌보드·절차 게이트를 끈다.
+  // 실패해도 기존 빌보드 체인이 그대로 살아 있으므로 게임은 항상 완주 가능.
+  new GLTFLoader().load('assets/models/palace.glb?v=1', (g) => {
+    window.__palaceOK = true;
+    g.scene.traverse(o => {
+      if (o.isMesh && o.material) {
+        o.material.roughness = Math.min(0.95, o.material.roughness ?? 0.85);
+        // 야간 판독성 — 달빛만으로 죽지 않게 미세 자체발광
+        o.material.emissive = new THREE.Color(0xffffff);
+        o.material.emissiveIntensity = 0.02;
+        if (o.material.map) o.material.emissiveMap = o.material.map;
+      }
+    });
+    env.add(g.scene);
+    // 절차 게이트 몸체(석축 제외 전부)와 보스 배경 실루엣을 끈다
+    const gp = env.userData.gateProc;
+    if (gp) gp.children.forEach(c => { if (!/base/.test(c.name || '')) c.visible = false; });
+    if (env.userData.bossBack) env.userData.bossBack.forEach(m => { m.visible = false; });
+  }, undefined, () => {});
 
   { // 근정전 월대 — 실물 2단 석축 + 중앙 어계(계단) 암시 (시각 전용 1메시).
     // 빌보드(z -141.5)와 전투 공간을 물리로 연결. 전투 경기장(z > -139) 침범 금지: 전 파츠 z ≤ -139.5
