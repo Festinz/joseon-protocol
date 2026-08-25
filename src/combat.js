@@ -298,6 +298,9 @@ export function creditKill({ score = SCORE.kill, weak = false } = {}) {
   if (risky) state.emit('riskKill', pts);
 }
 export function creditHit() { addUlt(ULT.perHit); }
+// 회피도 게이지를 채운다 — 잘 피하는 플레이도 궁극기로 이어지게
+state.on('evadeStart', () => addUlt(ULT.perEvade));
+state.on('evadeNegated', () => addUlt(ULT.perEvadeNegate));
 export function creditShootdown() {
   state.score += SCORE.shootdown; addUlt(ULT.perShootdown);
   state.emit('scoreChanged');

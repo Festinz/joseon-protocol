@@ -51,9 +51,19 @@ export const AIM = {
 // ── 적 — TC 이분법: 잡졸탄 = 연출(0dmg), 명중탄만 위협 ──
 export const ENEMIES = {
   grunt:    { name: '화승병',   hp: 10, score: 100, color: 'IRON',    danger: false },
-  marksman: { name: '별기군 사수', hp: 20, score: 150, color: 'RED',  danger: true, windupMs: 300, aimIntervalMs: 6000, firstDelayMs: 4000 },
-  thrower:  { name: '진천뢰 투척병', hp: 15, score: 150, color: 'LEATHER', lob: true, lobIntervalMs: 8000, bombHp: 1, bombFlightMs: 2600 },
+  marksman: { name: '별기군 사수', hp: 20, score: 150, color: 'RED',  danger: true, windupMs: 300, aimIntervalMs: 6000, firstDelayMs: 4000, keepAway: 6 },
+  thrower:  { name: '진천뢰 투척병', hp: 15, score: 150, color: 'LEATHER', lob: true, lobIntervalMs: 8000, bombHp: 1, bombFlightMs: 2600, keepAway: 7 },
   shield:   { name: '팽배수',   hp: 30, score: 200, color: 'BRASS',   headOnly: true, advance: true },
+};
+
+// 잡졸 근접 공격 — 붙으면 원거리 무기를 접고 개머리판·창대로 때린다.
+// 실데미지라 반드시 예고된다(붉은 오라 + windupMs). 거리에 따라 대응이 갈리게 만드는 축.
+export const EMELEE = {
+  range: 2.7,           // 이 안이면 근접으로 전환
+  windupMs: 420,        // 예고 — 이 사이에 빠지거나 회피하면 안 맞는다
+  arcDeg: 130,
+  dmg: 16,
+  cooldownMs: 2400,
 };
 export const DANGER = {
   flightMs: 1000,       // 트레이서 비행 = 반응창 (견착 무관 불변 — "정보는 평등")
@@ -62,10 +72,22 @@ export const DANGER = {
 };
 
 // ── 궁극기 (open 필드 전용 — PPTX 규칙) ──
+// 충전은 "아껴둔 한 방" 이어야 한다. 이전 값(킬 4 / 명중 1)은 한 구역만 돌아도 게이지가
+// 가득 차서 궁극기가 상시 기술이 됐다. 대략 두 구역에 한 번 쓰이도록 절반 아래로 내린다.
 export const ULT = {
-  max: 100, perHit: 1, perKill: 4, perWeakKill: 3, perShootdown: 5,
+  max: 100,
+  perHit: 0.5,          // (구 1)
+  perKill: 2,           // (구 4)
+  perWeakKill: 1.2,     // 약점 처치 추가분 (구 3)
+  perShootdown: 3,      // (구 5)
+  perEvade: 0.5,        // 회피 스텝 — 쓰는 것만으로도 조금 찬다
+  perEvadeNegate: 2,    // 회피로 실제 피해를 흘려냈을 때 (읽고 반응한 보상)
   riskMult: 1.5,        // 역견착(!favorable) 노출 킬 배율
-  bossDmg: 150, castMs: 4500,
+  // 보스에게는 고정 피해가 아니라 최대 체력 비율로 넣는다. 한 번에 최대 1/5.
+  // 로켓이 여러 발 박혀도 합계가 이 비율을 넘지 않는다.
+  bossFrac: 0.2,
+  bossDmg: 150,         // (구 경로 호환 — 신기전은 bossFrac 을 쓴다)
+  castMs: 4500,
 };
 
 // ── 아이템 ──

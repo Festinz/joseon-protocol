@@ -10,8 +10,8 @@ import { spawnWave, aliveCount, clearAll, getActors, resetReliefFlag } from './e
 import { clearDangerShots, damagePlayer } from './combat.js';
 import { refillAmmo } from './weapons.js';
 import { resetWheelVec } from './input.js';
-import { initBossFight, updateBoss, bossActive, bossTakeUltDamage } from './boss.js';
-import { spawnSatto, updateSatto, sattoActive, resetSatto, sattoTakeDamage } from './satto.js';
+import { initBossFight, updateBoss, bossActive } from './boss.js';
+import { spawnSatto, updateSatto, sattoActive, resetSatto } from './satto.js';
 import { fireSingijeon, SGJ } from './singijeon.js';
 
 const zoneState = ZONES.map(() => ({ started: false, cleared: false, waveIdx: 0, waveActive: false, waveStartAt: 0 }));

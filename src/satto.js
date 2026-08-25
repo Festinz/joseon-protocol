@@ -14,14 +14,14 @@ import { burst, kick, shockwave } from './vfx.js';
 //   중(3.4~8)  증기 충격파 · 회전 후려치기        → 거리를 벌리거나 뛰어넘을 수 없으니 물러선다
 //   원(>8)     돌진 · 진천뢰 3연발 탄막           → 옆으로 피하거나 엄폐물을 낀다
 const CFG = {
-  hp: 320, speed: 2.6, meleeRange: 3.4,
-  slam: { windup1: 900, offbeat: 420, dmgRadius: 3.6, dmg: 30 },     // 엇박: 정박에서 멈칫 → 0.42s 뒤 타격
-  combo:  { swings: 3, windup: 560, gapMs: 470, range: 4.0, arcDeg: 150, dmg: 16, cooldown: 7000 },
-  charge: { minDist: 8, tele: 800, speed: 11, durMs: 1100, halfWidth: 1.3, dmg: 25, cooldown: 6000 },
-  wave: { interval: 11000, tele: 1200, radius: 7.5, dmg: 25 },
-  sweep:  { tele: 720, radius: 6.2, dmg: 26, cooldown: 9000 },        // 회전 후려치기 — 중거리 원형
-  barrage:{ tele: 780, shots: 3, gapMs: 340, flightMs: 1250, radius: 3.0, dmg: 22, cooldown: 12000 },
-  staggerEvery: 80,     // 누적 피해마다 경직
+  hp: 520, speed: 3.1, meleeRange: 3.6,
+  slam: { windup1: 820, offbeat: 400, dmgRadius: 3.9, dmg: 34 },     // 엇박: 정박에서 멈칫 → 0.4s 뒤 타격
+  combo:  { swings: 3, windup: 500, gapMs: 430, range: 4.3, arcDeg: 160, dmg: 21, cooldown: 5600 },
+  charge: { minDist: 8, tele: 720, speed: 12.5, durMs: 1200, halfWidth: 1.5, dmg: 32, cooldown: 4800 },
+  wave: { interval: 8500, tele: 1100, radius: 8.0, dmg: 30 },
+  sweep:  { tele: 660, radius: 6.6, dmg: 32, cooldown: 7200 },        // 회전 후려치기 — 중거리 원형
+  barrage:{ tele: 700, shots: 4, gapMs: 320, flightMs: 1200, radius: 3.2, dmg: 26, cooldown: 9500 },
+  staggerEvery: 130,    // 누적 피해마다 경직 (낮으면 스턴락으로 무력해진다)
 };
 
 let m = null;   // { group, hp, st, stT, lastCharge, lastWave, dmgAcc, mixer, clips }
@@ -126,6 +126,9 @@ function die() {
 
 function despawn() { clearBombs(); if (m?.group?.parent) m.group.parent.remove(m.group); m = null; }
 export function resetSatto() { despawn(); }
+export function sattoTakeUltFraction(frac) { if (m && m.hp > 0) takeHit(CFG.hp * frac); }
+export function sattoMaxHp() { return CFG.hp; }
+
 export function sattoTakeDamage(pos, radius, dmg) {
   if (!m || m.hp <= 0) return;
   if (m.group.position.distanceTo(pos) < radius) takeHit(dmg);

@@ -14,8 +14,8 @@ import { ULT } from './config.js';
 import { state, now } from './state.js';
 import { rig } from './rail.js';
 import { getActors } from './enemies.js';
-import { bossActive, bossTakeUltDamage, bossBodyPos } from './boss.js';
-import { sattoActive, sattoTakeDamage } from './satto.js';
+import { bossActive, bossTakeUltFraction, bossBodyPos } from './boss.js';
+import { sattoActive, sattoTakeUltFraction } from './satto.js';
 import { burst, shockwave, kick, trailPuff, explosionFlash, scorch } from './vfx.js';
 
 export const SGJ = {
@@ -31,10 +31,11 @@ export const SGJ = {
   spawnToward: 6,       // 표적에서 플레이어 쪽으로 얼마나 당겨 띄우는가 (비스듬한 낙하)
   spawnSpread: 3.2,     // 로켓별 좌우 산개
   arcHeight: 1.2,       // 낙하 중 살짝 부풀리는 정도
-  dmg: 9999,            // 잡졸은 직격이면 즉사
+  dmg: 9999,            // 잡졸은 직격이면 즉사 (의도한 대로)
   splash: 3.2,          // 착탄 광역
   splashDmg: 60,
-  bossDmg: ULT.bossDmg, // 보스는 로켓당 고정 피해
+  // 보스는 고정 피해가 아니라 최대 체력 비율. 한 번의 궁극기가 넣는 총량이 ULT.bossFrac 이고,
+  // 보스를 노린 로켓 수로 나눠 담는다 — 로켓이 많아도 합계는 1/5 를 넘지 않는다.
 };
 
 let sc = null;
@@ -99,6 +100,9 @@ export function allocate(targetCount, base = SGJ.baseRockets) {
 export function fireSingijeon() {
   const targets = collectTargets();
   const seq = allocate(targets.length);
+  // 보스를 노린 로켓 수를 미리 세어 비율을 n 등분한다
+  const bossHits = seq.filter(i => targets[i] && targets[i].kind !== 'actor').length;
+  const bossShare = bossHits ? ULT.bossFrac / bossHits : 0;
   state.emit('singijeonVolley', { rockets: seq.length, targets: targets.length });
 
   const pp = rig.dolly.position.clone();
@@ -115,14 +119,14 @@ export function fireSingijeon() {
       else if (!t.actor || t.actor.alive) dest = (t.pos ? t.pos.clone() : pp.clone().addScaledVector(fwd, 14));
       else dest = t.pos.clone();
       dest.y += 0.9;
-      launch(dest, t, i);
+      launch(dest, t, i, bossShare);
     }, i * SGJ.volleyGapMs);
   });
   return seq.length;
 }
 
 const _toPlayer = new THREE.Vector3(), _side = new THREE.Vector3();
-function launch(dest, target, idx) {
+function launch(dest, target, idx, bossShare = 0) {
   const mesh = acquire();
   const pp = rig.dolly.position;
   // 표적 위 하늘 → 표적. 플레이어 쪽으로 조금 당겨 띄워 비스듬히 내리꽂는다.
@@ -136,7 +140,7 @@ function launch(dest, target, idx) {
     .addScaledVector(_side, lane);
   mesh.position.copy(from);
   sc.add(mesh);
-  live.push({ mesh, from, dest, target, t0: now(), tick: 0, done: false });
+  live.push({ mesh, from, dest, target, bossShare, t0: now(), tick: 0, done: false });
   state.emit('singijeonLaunch', idx);
 }
 
@@ -185,9 +189,9 @@ function impact(r) {
   if (t?.kind === 'actor' && t.actor?.alive) {
     t.actor.onHit(t.actor.headOnly ? 'hitHead' : 'hitBody', SGJ.dmg, { weak: true, ult: true });
   } else if (t?.kind === 'boss') {
-    bossTakeUltDamage(SGJ.bossDmg);
+    bossTakeUltFraction(r.bossShare);
   } else if (t?.kind === 'satto') {
-    sattoTakeDamage(pos, 1e9, SGJ.bossDmg);
+    sattoTakeUltFraction(r.bossShare);
   }
   // 착탄 광역 — 표적이 아니어도 근처면 휩쓸린다
   for (const a of [...getActors()]) {

@@ -260,6 +260,14 @@ function extinguishCore() {
   if (boss.coreRing) boss.coreRing.visible = false;
 }
 
+// 궁극기는 최대 체력 비율로 넣는다 (한 번에 최대 1/5). 고정 피해면 코어 200 짜리 보스가
+// 궁극기 두 방에 녹아서 보스전이 성립하지 않는다.
+export function bossTakeUltFraction(frac) {
+  if (!boss || boss.phase === 0) return;
+  bossTakeUltDamage(CFG.coreHp * frac);
+}
+export function bossMaxHp() { return CFG.coreHp; }
+
 export function bossTakeUltDamage(dmg) {
   if (!boss || boss.phase === 0) return;
   if (boss.phase === 1) { // P1 궁: 남은 포탑 일괄 반파

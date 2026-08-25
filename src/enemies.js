@@ -2,7 +2,7 @@
 // TC 대원칙: 잡졸(화승병) 사격은 전부 연출탄(데미지 0). 위협은 명중탄 스케줄뿐.
 
 import * as THREE from 'three';
-import { ENEMIES, DANGER, SCORE, PLAYER, WEAPONS, HEAVY } from './config.js';
+import { ENEMIES, DANGER, SCORE, PLAYER, WEAPONS, HEAVY, EMELEE } from './config.js';
 import { state, now } from './state.js';
 import { buildSoldier, retrofitSoldierAnim } from './assets.js';
 import { registerHittable, unregisterActor, spawnDangerShot, creditKill, creditHit, creditShootdown, damagePlayer } from './combat.js';
@@ -15,6 +15,7 @@ const pool = { grunt: [], marksman: [], thrower: [], shield: [] };
 const bombs = [];         // 격추 가능 진천뢰
 let spawnQueue = [];      // { at(ms), entry, node }
 const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
+const _p = new THREE.Vector3();   // 근접 판정용 전방 벡터
 
 export function initEnemies(sc) {
   scene = sc;
@@ -164,6 +165,7 @@ function doSpawn({ entry, node }) {
   if (entry.type === 'thrower') a.nextFire = now() + 3000;
   if (entry.type === 'grunt' || entry.type === 'shield') a.nextFire = now() + 1500 + Math.random() * 2000;
   a.attackUntil = 0; // 풀 재사용 시 잔여 attack 홀드 제거
+  a.nextMelee = 0;   // 근접 공격 쿨다운
   scene.add(a.group);
   actors.push(a);
   state.emit('enemySpawned', a);
@@ -259,7 +261,13 @@ export function updateEnemies(dt) {
         const pd = a.group.position.distanceTo(rig.dolly.position);
         const engage = a.type === 'shield' ? 2.2 : a.type === 'marksman' ? 11 : 8;
         const attacking = t < a.attackUntil; // attack 원샷 재생 중 — 이동 클립으로 덮지 않음
-        if (pd > engage) {
+        // 원거리형(사수·투척병)은 너무 붙으면 물러선다 — 근접전을 피하는 게 그들의 답
+        const keep = ENEMIES[a.type].keepAway || 0;   // updateEnemies 스코프엔 cfg 가 없다
+        if (keep && pd < keep && a.st === 'IDLE') {
+          _v.subVectors(a.group.position, rig.dolly.position).setY(0).normalize();
+          a.group.position.addScaledVector(_v, 2.1 * dt * 0.001);
+          if (!attacking) playA(a, ['walk', 'run', 'jog']);
+        } else if (pd > engage) {
           const spd = a.type === 'shield' ? 0.9 : 1.6;
           a.group.position.addScaledVector(_v.subVectors(rig.dolly.position, a.group.position).setY(0).normalize(), spd * dt * 0.001);
           if (!attacking && !playA(a, ['walk', 'run', 'jog'])) { /* 폴백: sine 보행 바운스 */ a.group.position.y = a.homeY + Math.abs(Math.sin(t * 0.008 + a.seed)) * 0.07; }
@@ -270,19 +278,30 @@ export function updateEnemies(dt) {
         }
         if (a.type === 'shield' && pd < 2.2) { damagePlayer(PLAYER.dangerHit, '팽배수 근접 공격'); a.st = 'RECOIL'; a.stT = t; }
         a.group.lookAt(rig.dolly.position.x, a.homeY, rig.dolly.position.z);
-        // 사격 스케줄
-        if ((a.type === 'grunt' || a.type === 'shield') && t >= a.nextFire) {
+
+        // ── 거리 대응: 사거리 안으로 들어오면 원거리 무기를 접고 근접으로 전환 ──
+        // 실데미지라 반드시 예고한다(붉은 오라 + windup). 그 사이에 빠지거나 회피하면 안 맞는다.
+        if (a.type !== 'shield' && pd < EMELEE.range && t >= a.nextMelee) {
+          a.nextMelee = t + EMELEE.cooldownMs;
+          a.st = 'MELEE_WINDUP'; a.stT = t; a.aura.visible = true;
+          playAttackOnce(a, t);
+          state.emit('enemyMeleeWindup', a);
+          break;                                  // 이번 프레임의 사격 스케줄은 건너뛴다
+        }
+
+        // 사격 스케줄 (근접 사거리 밖일 때만 — 붙어서 총 쏘는 그림은 안 나오게)
+        if (pd >= EMELEE.range && (a.type === 'grunt' || a.type === 'shield') && t >= a.nextFire) {
           a.nextFire = t + DECOY_MIN_MS + Math.random() * DECOY_VAR_MS;
           // 몸통 정렬은 바로 위 프레임별 lookAt 이 보장
           playAttackOnce(a, t);
           state.emit('decoyShot', a); // 연출탄: 머즐 플래시+소리만, 데미지 0
         }
-        if (a.type === 'marksman' && t >= a.nextFire && t >= state.smokeUntil) {
+        if (pd >= EMELEE.range && a.type === 'marksman' && t >= a.nextFire && t >= state.smokeUntil) {
           a.st = 'TELEGRAPH'; a.stT = t; a.aura.visible = true;
           playA(a, ['attack', 'shoot', 'fire', 'aim'], false);
           state.emit('dangerTelegraph', a);
         }
-        if (a.type === 'thrower' && t >= a.nextFire) {
+        if (pd >= EMELEE.range && a.type === 'thrower' && t >= a.nextFire) {
           a.nextFire = t + ENEMIES.thrower.lobIntervalMs;
           throwBomb(a);
         }
@@ -297,6 +316,20 @@ export function updateEnemies(dt) {
           const from = a.group.position.clone().add(new THREE.Vector3(0, 1.5, 0));
           spawnDangerShot(from, { flightMs: a.flightMs });
           a.flightMs = a.entry.flightMs || DANGER.flightMs; // 완화는 첫 발만
+        }
+        break;
+      }
+      case 'MELEE_WINDUP': {   // 근접 예고 → 타격
+        if (el >= EMELEE.windupMs) {
+          a.aura.visible = false;
+          a.st = 'IDLE'; a.stT = t;
+          const pd2 = a.group.position.distanceTo(rig.dolly.position);
+          _v.subVectors(rig.dolly.position, a.group.position).setY(0).normalize();
+          const fw = _p.set(Math.sin(a.group.rotation.y), 0, Math.cos(a.group.rotation.y));
+          if (pd2 < EMELEE.range + 0.5 && _v.dot(fw) > Math.cos(EMELEE.arcDeg * Math.PI / 360)) {
+            damagePlayer(EMELEE.dmg, `${ENEMIES[a.type].name}의 근접 공격`);
+          }
+          state.emit('enemyMeleeHit', a);
         }
         break;
       }
