@@ -36,7 +36,11 @@ export function initVmSprite() {
     override = { sprite: cur(), until: now() + ms, anim: 'reload', dur: ms };
   });
   state.on('assassinateDone', () => { override = { sprite: SPRITES.dagger, until: now() + 700, anim: 'stab' }; });
-  state.on('meleeSwing', () => { override = { sprite: SPRITES.dagger, until: now() + 380, anim: 'stab', dur: 380 }; });
+  state.on('meleeSwing', () => {
+    override = { sprite: SPRITES.dagger, until: now() + 340, anim: 'slash', dur: 340 };
+    const fx = document.getElementById('slashfx');           // 참격 궤적 플래시
+    if (fx) { fx.classList.remove('go'); void fx.offsetWidth; fx.classList.add('go'); }
+  });
   state.on('grenadeThrown', () => { override = { sprite: SPRITES.grenade, until: now() + 650, anim: 'throw' }; });
   state.on('ultCastStart', () => { override = { sprite: SPRITES.mapae, until: now() + 1700, anim: 'raise' }; });
   refresh();
@@ -82,13 +86,21 @@ export function updateVmSprite(dt) {
     const dur = override.dur || 700;
     const k = 1 - Math.max(0, (override.until - t)) / dur;
     if (override.anim === 'stab') { ax = -60 * Math.sin(k * Math.PI); ay = -40 * Math.sin(k * Math.PI); ar = -8 * Math.sin(k * Math.PI); }
+    if (override.anim === 'slash') {                          // 대각 베기: 오른위→왼아래 호를 그리며 슥삭
+      const s = Math.min(1, k * 1.12);
+      ax = 110 - 300 * s;                                     // 오른쪽에서 왼쪽으로 휩쓸기
+      ay = -30 - 90 * Math.sin(s * Math.PI);                  // 호 (중간에 치켜들림)
+      ar = 26 - 78 * s;                                       // 칼날 각도 회전
+      scale = 1 + 0.12 * Math.sin(s * Math.PI);
+    }
     if (override.anim === 'throw') { ay = 30 - 90 * Math.sin(Math.min(1, k * 1.3) * Math.PI); ar = -6 * Math.sin(k * Math.PI); }
     if (override.anim === 'raise') { ay = 40 - 70 * Math.min(1, k * 2); scale = 1.06; }
     if (override.anim === 'reload') {
-      // 총을 내리고(0~0.35) → 기울여 만지작(0.35~0.8, 흔들림) → 척 올림(0.8~1)
-      if (k < 0.35) { const p = k / 0.35; ay = 90 * p; ar = 14 * p; }
-      else if (k < 0.8) { const p = (k - 0.35) / 0.45; ay = 90 + Math.sin(p * Math.PI * 3) * 10; ar = 14 - p * 4; ax = Math.sin(p * Math.PI * 2) * 8; }
-      else { const p = (k - 0.8) / 0.2; ay = 90 * (1 - p * p); ar = 10 * (1 - p); }
+      // 택티컬 리로드: 캔트(0~0.25) → 탄창 탈착 홱(0.25~0.5) → 삽탄(0.5~0.75) → 노리쇠 스냅(0.75~1)
+      if (k < 0.25) { const p = k / 0.25; ay = 55 * p; ar = 22 * p; ax = -12 * p; }
+      else if (k < 0.5) { const p = (k - 0.25) / 0.25; ay = 55 + 55 * Math.sin(p * Math.PI * 0.5); ar = 22 + 6 * p; ax = -12 - 26 * p; }
+      else if (k < 0.75) { const p = (k - 0.5) / 0.25; ay = 110 - 40 * p; ar = 28 - 8 * p; ax = -38 + 30 * p; }
+      else { const p = (k - 0.75) / 0.25; const s = 1 - (1 - p) * (1 - p); ay = 70 * (1 - s) - 8 * Math.sin(p * Math.PI); ar = 20 * (1 - s); ax = -8 * (1 - s); }
     }
   }
 

@@ -2,7 +2,7 @@
 // TC 대원칙: 잡졸(화승병) 사격은 전부 연출탄(데미지 0). 위협은 명중탄 스케줄뿐.
 
 import * as THREE from 'three';
-import { ENEMIES, DANGER, SCORE, PLAYER } from './config.js';
+import { ENEMIES, DANGER, SCORE, PLAYER, WEAPONS } from './config.js';
 import { state, now } from './state.js';
 import { buildSoldier, retrofitSoldierAnim } from './assets.js';
 import { registerHittable, unregisterActor, spawnDangerShot, creditKill, creditHit, creditShootdown, damagePlayer } from './combat.js';
@@ -19,7 +19,10 @@ const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matr
 export function initEnemies(sc) {
   scene = sc;
   // 은신 시스템: 사격 소리는 존 전체 경보
-  state.on('shotFired', () => { for (const a of actors) a.aware = true; });
+  state.on('shotFired', () => {
+    if (WEAPONS[state.currentWeapon]?.silent) return;   // 흑각궁: 무소음 — 경보 없음
+    for (const a of actors) a.aware = true;
+  });
   state.on('assassinatePressed', tryAssassinate);
   // 애니 GLB 로드 완료 → 살아있는 액터 + 풀 전체 일괄 소급
   state.on('soldierGLBReady', () => {

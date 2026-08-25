@@ -171,7 +171,7 @@ function renderAmmo() {
   renderSlots();
   renderWheelHl(state.currentWeapon);
 }
-const WHEEL_ANGLE = { rifle: 0, hwando: 60, carbine: 180, ritual: 240 }; // 휠 아트 섹터: 승자총통/환도/신기전/비격진천뢰
+const WHEEL_ANGLE = { rifle: 45, hwando: 135, carbine: 225, ritual: 315 }; // X자 4등분: ↗장총 ↘환도 ↙권총 ↖활
 function renderWheelHl(key) {
   const k = key || state._wheelPick || state.currentWeapon;
   $('wheelhl').style.setProperty('--a', (WHEEL_ANGLE[k] || 0) + 'deg');
@@ -207,6 +207,9 @@ function renderSlots() {
   $('ws2').style.opacity = state.unlockedWeapons.includes('carbine') ? 1 : 0.3;
   $('ws3').style.opacity = state.unlockedWeapons.includes('ritual') ? 1 : 0.3;
   const w4 = $('ws4'); if (w4) w4.style.opacity = state.unlockedWeapons.includes('hwando') ? 1 : 0.3;
+  for (const k of ['rifle', 'carbine', 'ritual', 'hwando']) {   // 휠 사분면 라벨 잠금 표시
+    const el = $('wl-' + k); if (el) el.classList.toggle('locked', !state.unlockedWeapons.includes(k));
+  }
 }
 function renderItems() {
   $('it-tonic').innerHTML = `탕약 <b>×${state.items.tonic}</b> <span style="opacity:.6">T</span>`;

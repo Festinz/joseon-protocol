@@ -122,7 +122,17 @@
   #wheelbox{position:relative; width:min(52vh,480px)}
   #wheelbox img{width:100%; display:block; filter:drop-shadow(0 0 30px #000)}
   #wheelhl{position:absolute; inset:5%; border-radius:50%; pointer-events:none; mix-blend-mode:screen;
-           background:conic-gradient(from calc(var(--a,0deg) - 30deg), rgba(255,180,70,.5) 0deg 60deg, transparent 60deg 360deg)}
+           background:conic-gradient(from calc(var(--a,45deg) - 45deg), rgba(255,180,70,.5) 0deg 90deg, transparent 90deg 360deg)}
+  /* X자 분할선 + 사분면 무기 라벨 */
+  #wheelx{position:absolute; inset:5%; border-radius:50%; pointer-events:none; overflow:hidden}
+  #wheelx::before, #wheelx::after{content:''; position:absolute; left:50%; top:-8%; height:116%; width:2px; margin-left:-1px;
+    background:linear-gradient(180deg, transparent, rgba(232,220,192,.55) 22%, rgba(232,220,192,.55) 78%, transparent)}
+  #wheelx::before{transform:rotate(45deg)} #wheelx::after{transform:rotate(-45deg)}
+  .wlabel{position:absolute; transform:translate(-50%,-50%); font-size:16px; font-weight:800; letter-spacing:.14em;
+          color:var(--ink); text-shadow:0 1px 4px #000, 0 0 12px rgba(0,0,0,.9); background:rgba(10,12,26,.72);
+          border:1px solid var(--line); border-radius:8px; padding:3px 12px; pointer-events:none}
+  .wlabel.locked{opacity:.4}
+  #wl-rifle{left:73%; top:27%} #wl-hwando{left:73%; top:73%} #wl-carbine{left:27%; top:73%} #wl-ritual{left:27%; top:27%}
   #wheel.flash{background:transparent; pointer-events:none}
   #wheel.flash #wheelbox{width:min(30vh,280px)}
   #wheel.flash .wheelhint{font-size:13px}
@@ -133,6 +143,16 @@
   .twchip{min-width:220px; text-align:center; background:var(--panel); border:2px solid var(--line); border-radius:12px; padding:14px 26px; font-size:19px; font-weight:800; letter-spacing:.08em; transition:border-color .12s, transform .12s}
   .twchip.sel{border-color:#ffd24a; color:#ffd24a; transform:scale(1.07); box-shadow:0 0 18px rgba(255,210,74,.35)}
   .twhint{font-size:13px; color:#8f94b5; margin-top:6px}
+
+  /* ── 환도 참격 궤적 (미러는 부모, 회전 애니는 ::before — transform 충돌 방지) ── */
+  #slashfx{position:fixed; left:50%; top:52%; width:44vmin; height:44vmin; margin:-22vmin 0 0 -22vmin; pointer-events:none; z-index:8}
+  #slashfx::before{content:''; position:absolute; inset:0; border-radius:50%; opacity:0;
+    background:conic-gradient(from 300deg, transparent 0deg, rgba(255,255,255,0) 20deg, rgba(235,245,255,.95) 55deg, rgba(159,216,212,.35) 80deg, transparent 100deg);
+    -webkit-mask-image:radial-gradient(circle, transparent 52%, #000 56%, #000 74%, transparent 78%);
+    mask-image:radial-gradient(circle, transparent 52%, #000 56%, #000 74%, transparent 78%)}
+  #slashfx.go::before{animation:slashArc .22s ease-out forwards}
+  @keyframes slashArc{0%{opacity:0; transform:rotate(-40deg) scale(.7)} 18%{opacity:1} 100%{opacity:0; transform:rotate(150deg) scale(1.15)}}
+  body.hand-L #slashfx{transform:scaleX(-1)}
 
   /* ── ADS 조준경 (스팀펑크 모노큘러) ── */
   #scope{position:fixed; inset:0; z-index:9; pointer-events:none; opacity:0}
@@ -202,9 +222,16 @@
   <div id="wheelbox">
     <img src="assets/ui/wheel.png" alt="">
     <div id="wheelhl"></div>
+    <div id="wheelx"></div>
+    <span class="wlabel" id="wl-rifle">장총</span>
+    <span class="wlabel" id="wl-hwando">환도</span>
+    <span class="wlabel" id="wl-carbine">권총</span>
+    <span class="wlabel" id="wl-ritual">활</span>
   </div>
   <div class="wheelhint" id="wheelname">Space 탭 — 무기 전환 · 1/2/3 직접 선택</div>
 </div>
+
+<div id="slashfx"></div>
 
 <!-- 투척류 휠 (G 홀드) -->
 <div id="twheel" class="hud hidden">
@@ -298,7 +325,7 @@
     <div class="ammochip" id="reschip"><span id="resval">60</span></div>
   </div>
   <div id="reloadmsg"></div>
-  <div id="wslots"><b>1</b> 영천 · <span id="ws2">2 집경</span> · <span id="ws3">3 천마도</span> · <span id="ws4">4 환도</span> · <b>Space</b> 전환/휠</div>
+  <div id="wslots"><b>1</b> 장총 · <span id="ws2">2 권총</span> · <span id="ws3">3 활</span> · <span id="ws4">4 환도</span> · <b>Space</b> 전환/휠</div>
 </div>
 <div id="ult" class="hud">
   <img id="ultimg" src="assets/ui/hud_ult.png" alt="">

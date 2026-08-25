@@ -14,7 +14,10 @@ export function initAudio() {
     state.emit('muteChanged');
   });
   // 게임 이벤트 → SFX
-  state.on('shotFired', () => sfxShot());
+  state.on('shotFired', () => {
+    if (WEAPONS[state.currentWeapon]?.silent) sfxShot(0.28, 1500);  // 활 — 낮은 시위 튕김
+    else sfxShot();
+  });
   state.on('decoyShot', () => sfxShot(0.35, 900));
   state.on('shotHit', ({ weak }) => sfxHit(weak));
   state.on('enemyKilled', () => sfxKill());
