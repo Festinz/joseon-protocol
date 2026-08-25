@@ -14,7 +14,8 @@ import { burst, shockwave, kick } from './vfx.js';
 
 const CFG = {
   turretHp: 25, coreHp: 200,
-  p1AimMs: 2500, p2CycleMs: 12000, coreOpenMs: 4000, coreMult: 3,
+  // 플레이테스트: 해태가 너무 단단했다 — 코어 배율 3→4, 코어 창 4s→5.2s
+  p1AimMs: 2500, p2CycleMs: 12000, coreOpenMs: 5200, coreMult: 4,
   mortarCount: 3, mortarFlightMs: 2600,
   volleyAltMs: 1500,
   p2AddsEvery: 2,           // 사이클 2회마다 화승병 2 지원
@@ -217,7 +218,7 @@ export function initBossFight(node, isContinue = false) {
       onHit: (part, dmg) => {
         if (!boss || boss.phase === 0 || !coreActor.alive) return;
         creditHit();                        // 몸샷도 게이지는 준다 (코어 창을 못 잡아도 회복 가능)
-        coreActor.hp -= dmg * (boss.coreOpen ? 1.2 : 0.35); // 몸샷 감쇠 — 코어 창이 항상 최적
+        coreActor.hp -= dmg * (boss.coreOpen ? 1.5 : 0.55); // 몸샷 감쇠 완화 — 코어 창이 여전히 최적이되 몸샷도 유효타
         state.emit('bossPartHit', bodyHit);
         emitBossHp();
         checkFinale();
