@@ -55,7 +55,7 @@
   #pouchimg{width:100%; display:block; filter:drop-shadow(0 2px 10px rgba(0,0,0,.6))}
   .ammochip{position:absolute; transform:translate(-50%,-50%); background:rgba(26,20,14,.97); border:1px solid #6b5a3e; border-radius:10px; padding:2px 12px; min-width:52px; text-align:center; font-size:24px; font-weight:800; color:#e9cf8f; font-variant-numeric:tabular-nums; text-shadow:0 1px 3px #000}
   #magchip{left:27%; top:60%}
-  #reschip{left:64%; top:60%; font-size:19px; color:#c9b47e; min-width:56px}
+  #reschip{left:65%; top:60%; font-size:19px; color:#c9b47e; min-width:70px}
   #magchip.empty{color:var(--danger); animation:blink .5s steps(2) infinite}
   #wname{position:absolute; left:50%; top:12%; transform:translateX(-50%); font-size:12px; font-weight:700; color:#e9dcb8; letter-spacing:.12em; background:rgba(22,16,11,.85); border:1px solid #6b5a3e; border-radius:8px; padding:2px 12px; white-space:nowrap}
   #reloadmsg{font-size:11px; color:var(--warn); min-height:15px; margin-top:4px}
@@ -105,10 +105,12 @@
   @keyframes pulse{50%{filter:brightness(1.5)}}
 
   /* ── 뷰모델 스프라이트 ── */
-  #vmwrap{right:0; bottom:0; width:52vw; max-width:880px; z-index:8; overflow:hidden}
+  #vmwrap{right:-2.5vw; bottom:-3vw; width:58vw; max-width:1000px; z-index:8}
   #vmimg{width:100%; display:block; transform-origin:70% 100%;
-         filter:brightness(.82) saturate(.92) drop-shadow(0 0 18px rgba(0,0,0,.6)); transition:none}
-  body.hand-L #vmwrap{right:auto; left:0}
+         filter:brightness(.82) saturate(.92) drop-shadow(0 0 18px rgba(0,0,0,.6)); transition:none;
+         -webkit-mask-image:linear-gradient(to right, transparent 0, #000 11%);
+         mask-image:linear-gradient(to right, transparent 0, #000 11%)}  /* 아트 좌측 경계선을 어둠으로 페이드 */
+  body.hand-L #vmwrap{right:auto; left:-2.5vw}
   body.hand-L #vmimg{transform-origin:30% 100%; scale:-1 1}
 
   /* ── 무기 휠 ── */
