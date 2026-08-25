@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as BGU from 'three/addons/utils/BufferGeometryUtils.js';
 import { PALETTE } from './config.js';
+import { WALLS, COVERS, GATES } from './leveldata.js';
 import { stoneFloorTex, roofTileTex, stoneWallTex, skyTex, hanjiWindowTex } from './textures.js';
 
 // ── 공유 머티리얼 (드로우콜 배칭의 상한 = 머티리얼 수) ─────────────
@@ -421,7 +422,61 @@ export function buildEnvironment() {
   // 원경 산 실루엣
   const hills = new THREE.Mesh(new THREE.PlaneGeometry(300, 40), new THREE.MeshBasicMaterial({ color: 0x0d1020 }));
   hills.position.set(0, 12, -160); env.add(hills);
+
+  // ── (자유이동판) 낮은 엄폐 프롭 — leveldata.COVERS 가 시각·사선의 단일 진실 ──
+  for (const c of COVERS) {
+    const prop = buildCoverProp(c.kind);
+    prop.position.set(c.x, 0, c.z);
+    prop.rotation.y = (Math.random() - 0.5) * 0.35; // ±10° 지터 (배치감)
+    env.add(prop);
+  }
+
+  // ── 사선 차단(LOS) 콜라이더: WALLS + COVERS 그대로 — 비가시 박스 ──
+  for (const b of [...WALLS, ...COVERS]) {
+    const m = new THREE.Mesh(G.box, MAT.PROXY);
+    m.scale.set(b.w, b.h, b.d);
+    m.position.set(b.x, b.h / 2, b.z);
+    env.add(m); losMeshes.push(m);
+  }
+
+  // ── 킬게이트 철문 (닫힘 시작, 존 클리어 시 침강 개방) ──
+  for (const gdef of GATES) {
+    const door = new THREE.Group(); door.name = gdef.id;
+    const ironTex = MAT.IRON;
+    const dL = new THREE.Mesh(G.box, ironTex); dL.scale.set(gdef.w / 2 - 0.05, gdef.h, 0.25); dL.position.set(-gdef.w / 4, gdef.h / 2, 0); door.add(dL);
+    const dR = dL.clone(); dR.position.x = gdef.w / 4; door.add(dR);
+    // 황동 기어 장식 + 경첩 밴드
+    for (const side of [-1, 1]) {
+      const gear = new THREE.Mesh(G.torus, MAT.BRASS); gear.scale.set(0.5, 0.5, 0.5);
+      gear.position.set(side * gdef.w / 4, gdef.h * 0.45, 0.16); door.add(gear);
+      const band = new THREE.Mesh(G.box, MAT.BRASS); band.scale.set(gdef.w / 2 - 0.1, 0.12, 0.28);
+      band.position.set(side * gdef.w / 4, gdef.h * 0.75, 0); door.add(band);
+    }
+    door.position.set(gdef.x, 0, gdef.z);
+    env.add(door);
+    const los = new THREE.Mesh(G.box, MAT.PROXY);
+    los.scale.set(gdef.w, gdef.h, 0.3); los.position.set(gdef.x, gdef.h / 2, gdef.z);
+    env.add(los); losMeshes.push(los);
+    gateVisuals.set(gdef.id, { door, los, h: gdef.h });
+  }
   return env;
+}
+
+// LOS 콜라이더 목록 (main 이 combat.registerBlocker 로 등록)
+export const losMeshes = [];
+
+// 게이트 개방: 철문이 증기와 함께 지면으로 침강
+const gateVisuals = new Map();
+export function openGateVisual(id) {
+  const g = gateVisuals.get(id); if (!g) return;
+  const i = losMeshes.indexOf(g.los); if (i >= 0) losMeshes.splice(i, 1);
+  if (g.los.parent) g.los.parent.remove(g.los);
+  const t0 = performance.now();
+  const iv = setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / 1400);
+    g.door.position.y = -g.h * (k * k);
+    if (k >= 1) { clearInterval(iv); g.door.visible = false; }
+  }, 33);
 }
 
 // ══════════════════════════════════════════════════════════════════

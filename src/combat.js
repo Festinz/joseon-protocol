@@ -1,7 +1,7 @@
 // combat.js — 히트스캔(어깨 오리진 + 사선 차단) + 화면공간 스냅 + 명중탄 결정론 판정 + 데미지/사망.
 
 import * as THREE from 'three';
-import { WEAPONS, AIM, PLAYER, SCORE, ULT, DANGER } from './config.js';
+import { WEAPONS, AIM, PLAYER, SCORE, ULT, DANGER, DODGE } from './config.js';
 import { state, now } from './state.js';
 import { rig, shoulderWorldPos } from './rail.js';
 import { canFire, consumeShot, muzzleWorld } from './weapons.js';
@@ -20,11 +20,14 @@ export function unregisterActor(actor) {
 }
 export function registerBlocker(mesh) { blockers.push(mesh); }
 
-// ── 명중탄 (danger shot) — 발광 트레이서 엔티티 ──────────────────
-const dangerShots = [];    // { from:V3, t0, flightMs, dmg, cause, mesh(vfx가 관리) }
+// ── 명중탄 (danger shot) — 발사 순간의 플레이어 위치로 날아간다 ──
+// 회피법 ①이동(착탄 반경 밖으로) ②사선 차단(벽/엄폐물) ③앉기(반경 축소 보너스)
+const dangerShots = [];    // { from, target, t0, flightMs, dmg, cause }
+const _camPos = new THREE.Vector3();
 export function spawnDangerShot(fromV3, { flightMs = DANGER.flightMs, dmg = PLAYER.dangerHit, cause = '명중탄' } = {}) {
   if (now() < state.smokeUntil) return null;               // 연막: 명중탄 발사 자체 중지
-  const shot = { from: fromV3.clone(), t0: now(), flightMs, dmg, cause, dead: false };
+  rig.camera.getWorldPosition(_camPos);
+  const shot = { from: fromV3.clone(), target: _camPos.clone(), t0: now(), flightMs, dmg, cause, dead: false };
   dangerShots.push(shot);
   state.emit('dangerLaunched', shot);
   return shot;
@@ -32,13 +35,22 @@ export function spawnDangerShot(fromV3, { flightMs = DANGER.flightMs, dmg = PLAY
 export function getDangerShots() { return dangerShots; }
 export function clearDangerShots() { dangerShots.forEach(s => { s.dead = true; }); dangerShots.length = 0; state.emit('dangerCleared'); }
 
+const _ray = new THREE.Raycaster();
 function resolveDangerImpact(shot) {
-  // 결정론: 임팩트 순간 완전 엄폐(COVERED)만 무효. RISING/SNAPPING 도 피격.
-  if (state.inTransit || state.player.state === 'DEAD') return;
-  if (state.player.state === 'COVERED') { state.emit('dangerAvoided', shot); return; }
-  const fav = isFavorable();
-  const cause = fav === false ? `역견착 노출 중 피격` : fav === true ? `노출 중 피격` : `노출 중 피격`;
-  damagePlayer(shot.dmg, cause);
+  if (state.player.state === 'DEAD') return;
+  rig.camera.getWorldPosition(_camPos);
+  // ① 이동 회피: 착탄점(발사 순간 위치)에서 벗어났는가 — 앉으면 판정 반경 축소 보너스
+  const effRadius = DODGE.hitRadius - (state.playerCrouching ? DODGE.crouchBonus : 0);
+  if (_camPos.distanceTo(shot.target) > effRadius) {
+    state.emit('dangerAvoided', shot); state.emit('recapLine', '이동으로 회피!'); return;
+  }
+  // ② 사선 차단: 발사점 → 현재 머리 위치가 벽/엄폐물에 막혔는가
+  _ray.set(shot.from, _camPos.clone().sub(shot.from).normalize());
+  _ray.far = shot.from.distanceTo(_camPos) - 0.2;
+  if (_ray.intersectObjects(blockers, false).length > 0) {
+    state.emit('dangerAvoided', shot); state.emit('recapLine', '엄폐로 차단!'); return;
+  }
+  damagePlayer(shot.dmg, '명중탄 피격');
 }
 
 export function damagePlayer(amount, cause) {
@@ -61,7 +73,6 @@ let lastAimBlocked = false;
 export function tryFire() {
   if (state.phase !== 'play' || state.paused) return;
   if (!canFire()) return;
-  if (state.player.aimBlocked) { state.emit('fireBlocked'); return; } // 발사 안 됨, 탄약 미소모
 
   consumeShot();
   state.shotsFired += 1;
@@ -69,10 +80,8 @@ export function tryFire() {
   muzzleWorld(_v3);
   state.emit('shotFired', { muzzle: _v3.clone() });
 
-  // 히트스캔: 카메라 NDC 방향 + 어깨 오리진
-  const ndc = getNDC();
-  raycaster.setFromCamera({ x: ndc.ndcX, y: ndc.ndcY }, rig.camera);
-  raycaster.ray.origin.copy(shoulderWorldPos(_v));
+  // 히트스캔: 화면 중앙 (포인터락)
+  raycaster.setFromCamera({ x: 0, y: 0 }, rig.camera);
   raycaster.far = 200;
 
   const targets = hittables.filter(h => h.userData.actor?.alive);
@@ -125,7 +134,7 @@ function bumpCombo() {
 
 // 처치 보상 집계 (enemies/boss 에서 호출)
 export function creditKill({ score = SCORE.kill, weak = false } = {}) {
-  const risky = isFavorable() === false && state.player.peekT > 0.4;
+  const risky = isFavorable() === false && exposedFraction() > 0.4; // 역견착 리닝 킬 보너스 (훅 잔존)
   let pts = weak ? SCORE.weakKill : score;
   if (risky) { pts = Math.round(pts * SCORE.riskTag); state.riskKills += 1; }
   state.score += pts * state.comboMult;
@@ -165,20 +174,6 @@ export function updateCombat(dt) {
     }
   }
 
-  // 어깨 오리진 사선 차단 (역견착의 물리적 진실) — EXPOSED 에서만 의미
-  if (state.player.state === 'EXPOSED' || state.player.state === 'RISING') {
-    const ndc = getNDC();
-    raycaster.setFromCamera({ x: ndc.ndcX, y: ndc.ndcY }, rig.camera);
-    // 조준점 방향 30m 지점을 목표로, 어깨 오리진에서 재캐스트
-    _v2.copy(raycaster.ray.origin).addScaledVector(raycaster.ray.direction, 30);
-    shoulderWorldPos(_v);
-    raycaster.ray.origin.copy(_v);
-    raycaster.ray.direction.copy(_v2.sub(_v).normalize());
-    raycaster.far = 30;
-    const block = raycaster.intersectObjects(blockers, false);
-    const blocked = block.length > 0 && block[0].distance < 2.5;
-    if (blocked !== lastAimBlocked) { lastAimBlocked = blocked; state.player.aimBlocked = blocked; setCrosshairBlocked(blocked); }
-  } else if (lastAimBlocked) { lastAimBlocked = false; state.player.aimBlocked = false; setCrosshairBlocked(false); }
 }
 
 state.on('firePressed', () => { lastHoldFire = now(); tryFire(); });

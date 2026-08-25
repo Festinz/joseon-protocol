@@ -12,7 +12,7 @@
   *{box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none}
   html,body{width:100%; height:100%; overflow:hidden; background:var(--bg)}
   body{font-family:"Noto Sans KR","Malgun Gothic",system-ui,sans-serif; color:var(--ink); cursor:none}
-  #c{position:fixed; inset:0; display:block}
+  #c{position:fixed; inset:0; display:block; width:100vw; height:100vh; image-rendering:pixelated}
   .hud{position:fixed; pointer-events:none; z-index:10}
   .hidden{display:none !important}
 
@@ -184,8 +184,8 @@
   <p>한성에 증기 요괴가 창궐하였다.<br>어명을 받든 암행어사가 되어 광화문을 지나 경복궁을 수복하라.</p>
   <button class="btn" id="startbtn">출 정</button>
   <div class="keys">
-    <b>마우스</b> 조준 &nbsp; <b>좌클릭</b> 사격 &nbsp; <b>Space</b>/<b>우클릭</b> 홀드 = 견착 노출 &nbsp; 놓으면 엄폐<br>
-    <b>R</b> 재장전 &nbsp; <b>F</b> 탕약 &nbsp; <b>C</b> 연막 &nbsp; <b>Q</b> 궁극기 &nbsp; <b>1·2·3</b> 무기 &nbsp; <b>Esc</b> 일시정지 &nbsp; <b>M</b> 음소거
+    <b>WASD</b> 이동 &nbsp; <b>마우스</b> 조준 (클릭하면 시점 고정) &nbsp; <b>좌클릭</b> 사격 &nbsp; <b>Shift</b> 질주 &nbsp; <b>Ctrl</b> 앉기<br>
+    <b>Q/E</b> 리닝 &nbsp; <b>R</b> 재장전 &nbsp; <b>F</b> 탕약 &nbsp; <b>C</b> 연막 &nbsp; <b>V</b> 궁극기 &nbsp; <b>1·2·3</b> 무기 &nbsp; <b>Esc</b> 일시정지 &nbsp; <b>M</b> 음소거
   </div>
   <p style="margin-top:18px; font-size:12px; color:#8f94b5">PC · 마우스 전용 · 사운드 권장</p>
   <div id="loaderr"></div>
@@ -194,7 +194,7 @@
 <div id="ceremony" class="overlay hidden">
   <h1>마패 수여식</h1>
   <div class="eng">Choose Your Shoulder</div>
-  <p>총을 어느 어깨에 메겠는가. 견착한 쪽 모서리에서는 총구만 내밀 수 있으나,<br>반대쪽 모서리에서는 몸이 크게 드러난다.</p>
+  <p>총을 어느 어깨에 메겠는가. 견착한 쪽으로 기울이면(Q/E) 빠르고 깊게 내다볼 수 있으나,<br>반대쪽 리닝은 느리고 얕다. 대신 역견착으로 잡은 적은 공적을 1.5배로 친다.</p>
   <div class="cards">
     <div class="handcard" id="card-L">
       <h3>좌견착 <span style="font-size:12px;color:#8f94b5">왼어깨</span></h3>
@@ -209,7 +209,7 @@
         <path d="M186 60 L206 26 L166 30 L176 58 Z" fill="#ffa940" opacity=".38"/>
         <text x="158" y="96" font-size="10" fill="#ffa940" font-weight="700">우측 모서리 노출 65%</text>
       </svg>
-      <div class="desc">왼쪽 모서리에서 <span class="g">유리 (노출 30%)</span> · 오른쪽 모서리에서는 <span class="o">몸이 크게 나온다 (65%)</span></div>
+      <div class="desc"><span class="g">Q 리닝이 빠르고 깊다</span> · <span class="o">E 리닝은 느리고 얕다</span> — 대신 역견착 킬은 공적 ×1.5</div>
       <div class="holdring"></div><div class="holdfill"></div>
     </div>
     <div class="handcard" id="card-R">
@@ -225,11 +225,11 @@
         <path d="M184 46 L202 26 L186 22 Z" fill="#7fd07f" opacity=".4"/>
         <text x="152" y="96" font-size="10" fill="#7fd07f" font-weight="700">우측 모서리 노출 30%</text>
       </svg>
-      <div class="desc">오른쪽 모서리에서 <span class="g">유리 (노출 30%)</span> · 왼쪽 모서리에서는 <span class="o">몸이 크게 나온다 (65%)</span></div>
+      <div class="desc"><span class="g">E 리닝이 빠르고 깊다</span> · <span class="o">Q 리닝은 느리고 얕다</span> — 대신 역견착 킬은 공적 ×1.5</div>
       <div class="holdring"></div><div class="holdfill"></div>
     </div>
   </div>
-  <div id="fairness">「이 길에는 좌피크 2곳 · 우피크 2곳 · 중립 3곳이 있소. 어느 어깨든 전체 손해는 없소.」</div>
+  <div id="fairness">「길의 굽이는 좌우로 고르오. 어느 어깨든 전체 손해는 없소 — 다만 습관이 그대의 길을 정할 것이오.」</div>
   <div id="warnperm">⚠ 이 선택은 이번 출정 동안 되돌릴 수 없다</div>
   <div id="holdhint">카드를 <b>1.5초간 길게 눌러</b> 확정</div>
 </div>

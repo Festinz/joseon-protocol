@@ -40,11 +40,8 @@ function makeAura(group) { // 명중탄 텔레그래프용 붉은 오라 (판독
   return aura;
 }
 
-function nodeBasis(node) { // 노드 전방(-Z) 기준 로컬 → 월드 변환
-  const pos = new THREE.Vector3(...node.pos);
-  const look = new THREE.Vector3(...node.look);
-  _m.lookAt(pos, look, new THREE.Vector3(0, 1, 0));
-  return { pos, quat: _q.setFromRotationMatrix(_m).clone() };
+function nodeBasis(zone) { // 존 앵커 기준, 맵은 남→북(-Z) 축 정렬
+  return { pos: new THREE.Vector3(...zone.anchor), quat: new THREE.Quaternion() };
 }
 
 export function spawnWave(node, entries) {
@@ -85,15 +82,9 @@ function doSpawn({ entry, node }) {
   state.emit('enemySpawned', a);
 }
 
-// 첫 역견착 완화: 아직 완화를 소모하지 않았고 현재 커버가 역견착일 때 1회
+// (자유이동판) 첫 명중탄 완화는 웨이브 데이터의 flightMs 로만 제어
 let reliefUsed = false;
-function shouldRelief() {
-  if (reliefUsed) return false;
-  const node = state.node; if (!node) return false;
-  const side = node.covers[state.coverIdx]?.peekSide;
-  if (side !== 'TOP' && side !== state.hand) { reliefUsed = true; return true; }
-  return false;
-}
+function shouldRelief() { return false; }
 
 function onActorHit(a, part, dmg, info) {
   if (!a.alive) return;

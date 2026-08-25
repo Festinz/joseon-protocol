@@ -71,7 +71,7 @@ export function canFire() {
   const w = state.weapons[state.currentWeapon];
   const cfg = WEAPONS[state.currentWeapon];
   const t = now();
-  return state.player.state === 'EXPOSED' && !w.reloading && w.mag > 0 &&
+  return state.player.state !== 'DEAD' && !w.reloading && w.mag > 0 &&
          t - w.lastFire >= cfg.fireMs && t > switchingUntil && t > state.player.usingItemUntil && !state.ultCasting;
 }
 
@@ -131,10 +131,8 @@ export function updateWeapons(dt) {
     }
   }
 
-  // 엄폐 자동 재장전 (400ms 경과)
-  if (state.player.state === 'COVERED' && coveredSince && t - coveredSince > AUTO_RELOAD.coveredDelayMs) {
-    if (w.mag < WEAPONS[state.currentWeapon].mag && w.reserve > 0 && !w.reloading) doReload(state.currentWeapon);
-  }
+  // 탄창 소진 시 자동 재장전 (PPTX 규칙)
+  if (w.mag === 0 && w.reserve > 0 && !w.reloading) doReload(state.currentWeapon);
 
   // 뷰모델: 스프링 반동 + 조준 스웨이 + idle 바브
   const dts = Math.min(0.05, dt / 1000);
@@ -149,7 +147,7 @@ export function updateWeapons(dt) {
   if (cur) {
     cur.position.z = rk;
     cur.position.x = sx;
-    cur.position.y = bob + sy - (state.player.state === 'COVERED' ? 0.10 : 0);
+    cur.position.y = bob + sy - (state.playerCrouching ? 0.04 : 0);
     cur.rotation.x = -rp * 2.2 + sy * 0.6;
     cur.rotation.y = sx * 0.8;
   }

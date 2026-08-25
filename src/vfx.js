@@ -156,11 +156,10 @@ export function updateVfx(dt) {
   geometry.attributes.position.needsUpdate = true;
   geometry.attributes.color.needsUpdate = true;
 
-  // 명중탄 트레이서 — 카메라를 향해 lerp (가시성 최우선)
-  rig.camera.getWorldPosition(_cam);
+  // 명중탄 트레이서 — 발사 순간의 착탄점(고정)을 향해 lerp → 무빙 회피가 눈에 보인다
   for (const [s, m] of tracers) {
     const k = Math.min(1, (now() - s.t0) / s.flightMs);
-    m.position.lerpVectors(s.from, _cam, k);
+    m.position.lerpVectors(s.from, s.target || _cam, k);
     m.position.y += Math.sin(k * Math.PI) * 0.5; // 살짝 호
     const sc = 1 + k * 1.2; m.scale.setScalar(sc);
   }

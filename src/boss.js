@@ -8,8 +8,6 @@ import { PLAYER, DANGER } from './config.js';
 import { state, now } from './state.js';
 import { instantiate } from './assets.js';
 import { registerHittable, spawnDangerShot, creditKill, creditShootdown, damagePlayer } from './combat.js';
-import { swapCover } from './cover.js';
-import { applyCoverOffset } from './rail.js';
 import { spawnWave } from './enemies.js';
 
 const CFG = {
@@ -140,11 +138,8 @@ export function updateBoss(dt) {
 
 function startPhase2() {
   boss.phase = 2; boss.cycleN = 0;
-  state.emit('bannerShow', '고붕이가 진노한다 — 엄폐를 옮겨라!');
-  // 견착의 반대편이 유리한 노드로 강제 이동 → 반드시 1회 역견착 시험 후, 교대 볼리로 페이오프
-  const targetIdx = state.hand === 'R' ? 1 : 2;   // covers[1]=rubble_L(peek L), covers[2]=rubble_R(peek R)
+  state.emit('bannerShow', '고붕이가 진노한다 — 코어가 열릴 때 노려라!');
   state.player.invulnUntil = now() + 1400;
-  setTimeout(() => { swapCover(targetIdx); applyCoverOffset(); }, 600);
   boss.nextAct = now() + 3000;
 }
 

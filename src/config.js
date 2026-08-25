@@ -93,5 +93,26 @@ export const RAIL = {
   timerLowSec: 10,
 };
 
-// ── 성능 ──
-export const PERF = { maxPixelRatio: 1.5, cameraFar: 110, fogDensity: 0.011 };
+// ── 이동 (자유이동 1인칭 — Shadowglass 스타일) ──
+export const MOVE = {
+  walkSpeed: 4.2, sprintMult: 1.65, crouchMult: 0.55,
+  accel: 28, friction: 12,          // m/s² 가속 / 감쇠
+  eyeStand: 1.62, eyeCrouch: 1.08,
+  radius: 0.42,                     // 충돌 캡슐 반경
+  bobFreq: 8.6, bobAmp: 0.028,
+  // 리닝 (견착 훅의 재해석): 선택한 어깨 쪽이 빠르고 깊다
+  lean: {
+    fav:   { offset: 0.55, rollDeg: 11, ms: 130 },
+    unfav: { offset: 0.28, rollDeg: 6,  ms: 260 },
+  },
+};
+
+// ── 명중탄 회피 규칙 (자유이동판) ──
+// 발사 순간의 플레이어 위치로 날아간다 → 이동으로 벗어나거나(반경 밖) 벽/엄폐물로 사선을 끊으면 회피.
+export const DODGE = { hitRadius: 0.85, crouchBonus: 0.25 };
+
+// ── 성능 / 레트로 렌더 ──
+export const PERF = {
+  maxPixelRatio: 1.5, cameraFar: 200, fogDensity: 0.011,
+  retroHeight: 270,   // 픽셀화: 내부 렌더 세로 해상도 (가로는 화면비 따라) — ?retro=0 으로 끔
+};

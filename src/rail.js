@@ -1,44 +1,52 @@
-// rail.js — CatmullRom 스플라인 + 노드 정지, 카메라 리그 계층, 노드 간 트윈(무적).
-// 리그: railDolly > coverRig > shoulderRig > camera(+viewmodel layer 1)
+// rail.js — (자유이동판) 1인칭 플레이어 컨트롤러.
+// 파일명은 호환을 위해 유지: rig{dolly,shoulder,camera}, shoulderWorldPos, applyShoulder 를 그대로 내보낸다.
+// dolly = 플레이어 루트(위치+요), shoulder = 리닝/견착 노드(롤+측면 오프셋), camera = 피치.
 
 import * as THREE from 'three';
-import { LEVEL, RAIL_POINTS } from './leveldata.js';
-import { PLAYER, RAIL, PERF } from './config.js';
+import { PLAYER, MOVE, PERF } from './config.js';
+import { WALLS, COVERS, PLAYER_START, ZONES } from './leveldata.js';
 import { state, now } from './state.js';
+import { keys, consumeMouseDelta, isLeanHeld } from './input.js';
 
 export const rig = {
-  dolly: new THREE.Group(),
-  cover: new THREE.Group(),
-  shoulder: new THREE.Group(),
+  dolly: new THREE.Group(),     // 위치 + yaw
+  shoulder: new THREE.Group(),  // 리닝 오프셋/롤 + 견착 어깨
   camera: null,
 };
 
-const curve = new THREE.CatmullRomCurve3(RAIL_POINTS.map(p => new THREE.Vector3(...p)), false, 'centripetal');
-const SAMPLES = 600;
-const samplePts = curve.getPoints(SAMPLES);
-
-// 각 노드의 스플라인 파라미터 t (최근접 샘플)
-const nodeT = LEVEL.map(node => {
-  const p = new THREE.Vector3(...node.pos);
-  let best = 0, bestD = Infinity;
-  for (let i = 0; i <= SAMPLES; i++) {
-    const d = samplePts[i].distanceToSquared(p);
-    if (d < bestD) { bestD = d; best = i / SAMPLES; }
-  }
-  return best;
-});
-
-let transit = null; // { t0, t1, q0, q1, start, dur, targetIndex }
-const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4();
+let yaw = 0, pitch = 0;
+let velX = 0, velZ = 0;
+let bobPhase = 0;
+let leanT = 0;            // -1(좌) .. 0 .. +1(우) 목표를 향한 보간값
+let leanTarget = 0;
+let crouchT = 0;          // 0 서있음 .. 1 앉음
+const solids = [];        // {minX,maxX,minZ,maxZ,h} — 이동 충돌 (벽 + 커버 + 닫힌 게이트)
 
 export function initRail(camera) {
   rig.camera = camera;
-  rig.dolly.add(rig.cover); rig.cover.add(rig.shoulder); rig.shoulder.add(camera);
-  rig.cover.position.y = PLAYER.coveredEyeY;
+  rig.dolly.add(rig.shoulder); rig.shoulder.add(camera);
   camera.fov = PLAYER.fov; camera.far = PERF.cameraFar; camera.near = 0.05; camera.updateProjectionMatrix();
+  rig.dolly.position.set(...PLAYER_START);
+  rig.shoulder.position.y = MOVE.eyeStand;
   applyShoulder();
-  snapToNode(0);
+  for (const w of WALLS) addSolid(w);
+  for (const c of COVERS) addSolid(c);
   return rig.dolly;
+}
+
+function addSolid(b) {
+  solids.push({ minX: b.x - b.w / 2, maxX: b.x + b.w / 2, minZ: b.z - b.d / 2, maxZ: b.z + b.d / 2, h: b.h, ref: b });
+}
+// 게이트 충돌체 (열리면 제거)
+const gateSolids = new Map();
+export function addGateSolid(id, g) {
+  const s = { minX: g.x - g.w / 2, maxX: g.x + g.w / 2, minZ: g.z - 0.4, maxZ: g.z + 0.4, h: g.h, ref: g };
+  solids.push(s); gateSolids.set(id, s);
+}
+export function removeGateSolid(id) {
+  const s = gateSolids.get(id); if (!s) return;
+  const i = solids.indexOf(s); if (i >= 0) solids.splice(i, 1);
+  gateSolids.delete(id);
 }
 
 export function applyShoulder() {
@@ -46,65 +54,97 @@ export function applyShoulder() {
   rig.shoulder.position.x = sign * PLAYER.shoulderX;
 }
 
-function lookQuatAt(nodeIdx) {
-  const node = LEVEL[nodeIdx];
-  const pos = new THREE.Vector3(...node.pos);
-  const look = new THREE.Vector3(...node.look);
-  _m.lookAt(pos, look, new THREE.Vector3(0, 1, 0));
-  return new THREE.Quaternion().setFromRotationMatrix(_m);
+export function teleport(x, z, newYaw = 0) {
+  rig.dolly.position.x = x; rig.dolly.position.z = z;
+  yaw = newYaw; velX = velZ = 0;
 }
 
-export function snapToNode(idx) {
-  const node = LEVEL[idx];
-  state.nodeIndex = idx; state.node = node; state.coverIdx = 0; state.waveIndex = 0;
-  rig.dolly.position.set(...node.pos);
-  applyCoverOffset();
-  rig.dolly.quaternion.copy(lookQuatAt(idx));
-  state.emit('nodeArrived', node);
+// 리닝 판정: 현재 리닝 방향이 견착과 같은 쪽인가 (핵심 훅 잔존)
+export function isFavorable() {
+  if (Math.abs(leanT) < 0.15) return null;
+  const side = leanT > 0 ? 'R' : 'L';
+  return side === state.hand;
+}
+export function leanAmount() { return Math.abs(leanT); }
+
+export function updateRail(dt) {
+  const dts = Math.min(0.05, dt / 1000);
+  const p = state.player;
+  if (p.state === 'DEAD') return;
+
+  // ── 마우스 룩 ──
+  const md = consumeMouseDelta();
+  yaw -= md.x * 0.0023;
+  pitch -= md.y * 0.0021;
+  pitch = Math.max(-1.35, Math.min(1.35, pitch));
+  rig.dolly.rotation.y = yaw;
+  rig.camera.rotation.x = pitch;
+
+  // ── 이동 ──
+  const sprint = keys.shift && !keys.ctrl;
+  const speed = MOVE.walkSpeed * (sprint ? MOVE.sprintMult : 1) * (keys.ctrl ? MOVE.crouchMult : 1);
+  let ix = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
+  let iz = (keys.s ? 1 : 0) - (keys.w ? 1 : 0);
+  const len = Math.hypot(ix, iz) || 1; ix /= len; iz /= len;
+  // 로컬 → 월드
+  const sin = Math.sin(yaw), cos = Math.cos(yaw);
+  const wx = ix * cos + iz * sin;
+  const wz = -ix * sin + iz * cos;
+  velX += (wx * speed - velX) * Math.min(1, MOVE.accel * dts / Math.max(speed, 0.01)) * (ix || iz ? 1 : 0);
+  velZ += (wz * speed - velZ) * Math.min(1, MOVE.accel * dts / Math.max(speed, 0.01)) * (ix || iz ? 1 : 0);
+  if (!ix && !iz) { velX -= velX * Math.min(1, MOVE.friction * dts); velZ -= velZ * Math.min(1, MOVE.friction * dts); }
+
+  // 충돌 (축 분리 슬라이드)
+  const r = MOVE.radius;
+  let nx = rig.dolly.position.x + velX * dts;
+  if (!hitsSolid(nx, rig.dolly.position.z, r)) rig.dolly.position.x = nx; else velX = 0;
+  let nz = rig.dolly.position.z + velZ * dts;
+  if (!hitsSolid(rig.dolly.position.x, nz, r)) rig.dolly.position.z = nz; else velZ = 0;
+
+  state.playerMoving = Math.hypot(velX, velZ) > 0.5;
+
+  // ── 앉기 ──
+  const crouchGoal = keys.ctrl ? 1 : 0;
+  crouchT += (crouchGoal - crouchT) * Math.min(1, dts * 10);
+  const eyeY = MOVE.eyeStand + (MOVE.eyeCrouch - MOVE.eyeStand) * crouchT;
+
+  // ── 리닝 (견착 훅): 유리한 쪽이 빠르고 깊다 ──
+  const lh = isLeanHeld(); // -1 | 0 | +1
+  leanTarget = lh;
+  const goalSide = lh !== 0 ? (lh > 0 ? 'R' : 'L') : null;
+  const fav = goalSide ? goalSide === state.hand : true;
+  const cfg = fav ? MOVE.lean.fav : MOVE.lean.unfav;
+  const rate = 1000 / cfg.ms;
+  leanT += (leanTarget - leanT) * Math.min(1, dts * rate);
+  const activeCfg = (leanT > 0 ? 'R' : 'L') === state.hand ? MOVE.lean.fav : MOVE.lean.unfav;
+  rig.shoulder.position.x = (state.hand === 'L' ? -1 : 1) * PLAYER.shoulderX + leanT * activeCfg.offset;
+  rig.shoulder.rotation.z = -leanT * activeCfg.rollDeg * Math.PI / 180;
+
+  // ── 헤드밥 ──
+  if (state.playerMoving) bobPhase += dts * MOVE.bobFreq * (sprint ? 1.25 : 1);
+  const bob = Math.sin(bobPhase) * MOVE.bobAmp * (state.playerMoving ? 1 : 0);
+  rig.shoulder.position.y = eyeY + bob;
+
+  state.playerCrouching = crouchT > 0.6;
 }
 
-// DUAL/보스: 노드 내 커버 전환 (오프셋만 이동)
-export function applyCoverOffset() {
-  const node = state.node; if (!node) return;
-  const cover = node.covers[state.coverIdx];
-  const off = cover.offset || [0, 0, 0];
-  const base = new THREE.Vector3(...node.pos);
-  const local = new THREE.Vector3(...off).applyQuaternion(lookQuatAt(state.nodeIndex));
-  rig.dolly.position.copy(base).add(local);
-}
-
-export function startTransit(targetIndex) {
-  if (targetIndex >= LEVEL.length) { state.emit('runComplete'); return; }
-  const t0 = nodeT[state.nodeIndex], t1 = nodeT[targetIndex];
-  transit = {
-    t0, t1, start: now(), dur: RAIL.transitMs, targetIndex,
-    q0: rig.dolly.quaternion.clone(), q1: lookQuatAt(targetIndex),
-  };
-  state.inTransit = true;
-  state.player.state = 'TRANSIT';
-  state.emit('transitStart', targetIndex);
-}
-
-const easeInOut = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-
-export function updateRail() {
-  if (!transit) return;
-  const k = Math.min(1, (now() - transit.start) / transit.dur);
-  const e = easeInOut(k);
-  const t = transit.t0 + (transit.t1 - transit.t0) * e;
-  curve.getPointAt(Math.max(0, Math.min(1, t)), _v);
-  rig.dolly.position.copy(_v);
-  // 시선: 이동 후반 55% 구간에서 slerp
-  const lk = Math.max(0, (k - 0.45) / 0.55);
-  rig.dolly.quaternion.slerpQuaternions(transit.q0, transit.q1, easeInOut(lk));
-  if (k >= 1) {
-    const idx = transit.targetIndex; transit = null;
-    state.inTransit = false;
-    state.player.state = 'COVERED'; state.player.peekT = 0;
-    snapToNode(idx);
+function hitsSolid(x, z, r) {
+  for (const s of solids) {
+    if (x + r > s.minX && x - r < s.maxX && z + r > s.minZ && z - r < s.maxZ) return true;
   }
+  return false;
 }
 
 export function shoulderWorldPos(out) {
-  return rig.shoulder.getWorldPosition(out || _v);
+  return rig.shoulder.getWorldPosition(out || new THREE.Vector3());
+}
+
+export function playerPos() { return rig.dolly.position; }
+
+// 존 진입 감지용
+export function currentZoneIndex() {
+  const z = rig.dolly.position.z;
+  let idx = 0;
+  for (let i = 0; i < ZONES.length; i++) if (z <= ZONES[i].enterZ) idx = i;
+  return idx;
 }

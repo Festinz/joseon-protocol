@@ -3,7 +3,7 @@
 
 import { WEAPONS, SCORE, PLAYER, RAIL } from './config.js';
 import { state, setHand, now } from './state.js';
-import { exposedFraction } from './cover.js';
+import { exposedFraction, isFavorable } from './cover.js';
 import { applyShoulder } from './rail.js';
 import { unlockAudio } from './audio.js';
 
@@ -99,6 +99,8 @@ export function initUI({ onRunStart, onRestart }) {
   state.on('fireBlocked', () => showRecap('사선이 막혔다 — 반대쪽 견착의 대가'));
   state.on('shotBlockedByShield', () => showRecap('방패에 막혔다 — 머리를 노려라'));
   state.on('smokeDeployed', () => showBanner('연막 전개'));
+  state.on('recapLine', showRecap);
+  state.on('gateOpened', () => {});
   state.on('showEnding', showEnding);
 
   renderAll();
@@ -135,25 +137,30 @@ function renderUlt() {
   const el = $('ult');
   el.classList.toggle('locked', !open);
   el.classList.toggle('ready', open && state.ult >= 100);
-  $('ultlock').textContent = open ? (state.ult >= 100 ? 'Q — 폭격 지원' : Math.round(state.ult) + '%') : '🔒 개활지 전용';
+  $('ultlock').textContent = open ? (state.ult >= 100 ? 'V — 폭격 지원' : Math.round(state.ult) + '%') : '🔒 개활지 전용';
   document.querySelector('#ultbar i').style.width = state.ult + '%';
 }
 function renderScore() {
   document.querySelector('#score .pts').textContent = state.score.toLocaleString();
   document.querySelector('#score .combo').textContent = state.comboMult > 1 ? `콤보 ×${state.comboMult} (${state.combo})` : (state.combo >= 4 ? `연속 명중 ${state.combo}` : '');
 }
-function renderPeekBadge() {
-  const node = state.node; if (!node) return;
-  const side = node.covers[state.coverIdx]?.peekSide;
+function renderPeekBadge() { // (자유이동판) 견착·리닝 배지 — updateUI 에서 매 프레임 갱신
   const badge = $('peek');
   badge.classList.remove('fav', 'unfav', 'neutral');
   const arrow = badge.querySelector('.arrow'), lb = badge.querySelector('.lb');
-  if (side === 'TOP') { badge.classList.add('neutral'); arrow.textContent = '▲'; lb.textContent = '중립 엄폐 — 상단 사격'; }
-  else {
-    const fav = side === state.hand;
-    badge.classList.add(fav ? 'fav' : 'unfav');
-    arrow.textContent = side === 'R' ? '▶' : '◀';
-    lb.textContent = fav ? `${side === 'R' ? '우' : '좌'}피크 — 유리한 견착` : `${side === 'R' ? '우' : '좌'}피크 — 역견착 · 노출 큼`;
+  const fav = isFavorable();
+  if (fav === null) {
+    badge.classList.add('neutral');
+    arrow.textContent = state.hand === 'L' ? '◀' : '▶';
+    lb.textContent = `${state.hand === 'L' ? '좌' : '우'}견착 — Q/E 리닝 (${state.hand === 'L' ? 'Q' : 'E'} 쪽이 유리)`;
+  } else if (fav) {
+    badge.classList.add('fav');
+    arrow.textContent = state.hand === 'L' ? '◀' : '▶';
+    lb.textContent = '유리한 리닝 — 빠르고 깊다';
+  } else {
+    badge.classList.add('unfav');
+    arrow.textContent = state.hand === 'L' ? '▶' : '◀';
+    lb.textContent = '역견착 리닝 — 느리고 얕다 (킬 ×1.5)';
   }
 }
 
@@ -168,9 +175,10 @@ function showRecap(text) {
   recapTimer = setTimeout(() => { r.textContent = ''; }, 2200);
 }
 
-// 매 프레임: 노출 미터 + 위험 비네트
+// 매 프레임: 리닝 미터 + 견착 배지 + 위험 비네트
 export function updateUI() {
   document.querySelector('#exposure i').style.height = Math.round(exposedFraction() * 100) + '%';
+  if (state.phase === 'play') renderPeekBadge();
   const danger = now() < dangerUntil;
   $('vignette').classList.toggle('warn', danger);
   $('dangermark').classList.toggle('show', danger);

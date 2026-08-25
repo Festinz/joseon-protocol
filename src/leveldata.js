@@ -1,163 +1,120 @@
-// leveldata.js — 순수 데이터. 코드 없음. 스폰은 FL/FC/FR/HIGH 프리셋 오프셋만 사용.
-// 공정성 원장 (부팅 assert 대상): 강제 L 2 (S3w2, S4) · 강제 R 2 (S3w1, S5) · 중립 2 (S1, S6 P1)
-// 이 숫자는 견착 의식 화면 고지 문구와 반드시 일치해야 한다.
+// leveldata.js — 자유이동판: 존(전투 구역) + 충돌벽(시각·충돌·사선차단 단일 진실) + 커버 프롭.
+// 남→북: 광화문 광장 → 폭풍의 관문 → 회랑(ㄱ자 굽이) → 후원 → 근정전 보스룸
 
+// ── 충돌벽: {x, z, w, d, h} — 기존 시각 환경(assets.buildEnvironment)과 1:1 정합 ──
+export const WALLS = [
+  // 광장 담장 (addWallRun ±16, z 4..-40)
+  { x: -16, z: -18, w: 0.9, d: 44, h: 3.2 },
+  { x: 16,  z: -18, w: 0.9, d: 44, h: 3.2 },
+  { x: 0,   z: 6,   w: 33,  d: 1.0, h: 3.2 },              // 남쪽 등뒤 (비가시 경계)
+  // 광장 담장 끝 ~ 관문 사이 측면 막음 (z -40..-52)
+  { x: -11, z: -46, w: 11, d: 1.0, h: 3.2 },
+  { x: 11,  z: -46, w: 11, d: 1.0, h: 3.2 },
+  // 관문 석축 (gateProc baseL/R: x ±6.1, w 7.6, d 3 — 개구부 x -2.3..2.3)
+  { x: -6.1, z: -52, w: 7.6, d: 3, h: 5 },
+  { x: 6.1,  z: -52, w: 7.6, d: 3, h: 5 },
+  // 관문 안 통로 (inL/inR: x ±4.5, z -53..-69)
+  { x: -4.5, z: -61, w: 0.8, d: 16, h: 3.2 },
+  { x: 4.5,  z: -61, w: 0.8, d: 16, h: 3.2 },
+  // 통로 → 회랑 홀 전환부 측면 막음 (z -69..-56 홀 시작 어긋남 보정)
+  { x: -8.2, z: -69.5, w: 8.2, d: 1.0, h: 3.2 },
+  { x: 7.2,  z: -69.5, w: 6.2, d: 1.0, h: 3.2 },
+  // 회랑 홀 (addWallRun -12/10, z -56..-112) — 통로 이후 구간만 유효
+  { x: -12, z: -84, w: 0.9, d: 56, h: 3.2 },
+  { x: 10,  z: -84, w: 0.9, d: 56, h: 3.2 },
+  // 보스룸 문 벽 (z -112, 개구부 x -2.6..2.6) — 시각은 env 에서 생성
+  { x: -7.3, z: -112, w: 9.4, d: 1.4, h: 5 },
+  { x: 6.3,  z: -112, w: 7.4, d: 1.4, h: 5 },
+  // 보스룸 (addWallRun ±20, z -112..-142 + back -142)
+  { x: -20, z: -127, w: 0.9, d: 30, h: 6 },
+  { x: 20,  z: -127, w: 0.9, d: 30, h: 6 },
+  { x: 0,   z: -141.5, w: 42, d: 1.4, h: 6 },
+  // 보스룸 문 좌우 연결 (회랑 홀 폭 → 보스룸 폭 확장부)
+  { x: -16, z: -112, w: 8.4, d: 1.4, h: 5 },
+  { x: 15,  z: -112, w: 10.4, d: 1.4, h: 5 },
+];
+
+// ── 낮은 엄폐 프롭 (명중탄 사선 차단 + 시각) {x,z,w,d,h,kind} ──
+export const COVERS = [
+  { x: -5, z: -14, w: 2.4, d: 0.8, h: 1.15, kind: 'lowWall' },
+  { x: 5,  z: -22, w: 2.4, d: 0.8, h: 1.15, kind: 'lowWall' },
+  { x: 0,  z: -30, w: 2.2, d: 0.9, h: 1.1,  kind: 'crateWall' },
+  { x: -8, z: -34, w: 1.8, d: 0.9, h: 1.1,  kind: 'crateWall' },
+  { x: 8,  z: -37, w: 1.8, d: 0.9, h: 1.1,  kind: 'crateWall' },
+  { x: -1.5, z: -60, w: 1.6, d: 0.8, h: 1.1, kind: 'crateWall' },  // 관문 통로
+  { x: 1.5,  z: -66, w: 1.4, d: 0.8, h: 1.05, kind: 'crateWall' },
+  { x: -4, z: -80, w: 1.8, d: 0.9, h: 1.1,  kind: 'crateWall' },   // 회랑 홀
+  { x: 3,  z: -88, w: 1.8, d: 0.9, h: 1.1,  kind: 'crateWall' },
+  { x: -6, z: -96, w: 2.0, d: 0.9, h: 1.15, kind: 'lowWall' },
+  { x: 4,  z: -103, w: 2.0, d: 0.9, h: 1.15, kind: 'lowWall' },
+  { x: -3, z: -108, w: 2.0, d: 0.9, h: 1.15, kind: 'lowWall' },
+  { x: -6, z: -120, w: 2.4, d: 1.0, h: 1.2,  kind: 'rubbleL' },    // 보스룸
+  { x: 6,  z: -120, w: 2.4, d: 1.0, h: 1.2,  kind: 'rubbleR' },
+  { x: 0,  z: -116, w: 2.6, d: 1.1, h: 1.1,  kind: 'brokenAltar' },
+];
+
+// ── 킬게이트 문: 존 클리어 시 열림 ──
+export const GATES = [
+  { id: 'gate_plaza', x: 0, z: -52,  w: 4.7, h: 4.4 },   // 폭풍의 관문 철문
+  { id: 'gate_boss',  x: 0, z: -112, w: 5.2, h: 4.6 },   // 근정전 보스룸 문
+];
+
+// ── 스폰 프리셋 (존 앵커 기준, -Z 전방) ──
 export const SPAWN_PRESETS = {
-  FC:  [0, 0, -14], FL: [-5, 0, -12], FR: [5, 0, -12],
-  FC2: [0, 0, -18], FL2: [-7, 0, -16], FR2: [7, 0, -16],
-  HIGH_L: [-3.5, 3.2, -13], HIGH_R: [3.5, 3.2, -13],
+  FC: [0, 0, -12], FL: [-5, 0, -10], FR: [5, 0, -10],
+  FC2: [0, 0, -16], FL2: [-7, 0, -14], FR2: [7, 0, -14],
+  HIGH_L: [-3.5, 3.2, -11], HIGH_R: [3.5, 3.2, -11],
 };
 
-// 웨이브 항목: { type, dir, delay(s), aimIntervalMs?, flightMs? }
-export const LEVEL = [
-  // ── S1 드랍지점 — 튜토리얼 (중립 TOP · 명중탄 없음 · 죽을 수 없는 구간) ──
+// ── 존 (전투 구역) ──
+// bounds: 플레이어 z 진입 판정. anchor: 스폰 기준점. clearGate: 클리어 시 열리는 문.
+export const ZONES = [
   {
-    id: 'S1_drop', name: '드랍지점', objective: '광화문 광장으로 진입하라',
-    fieldType: 'open', timerSec: null,
-    pos: [0, 0, 0], look: [0, 1.4, -20],
-    covers: [{ id: 'crate_low', peekSide: 'TOP', prop: 'crateWall' }],
-    tutorial: 'basic',
+    id: 'Z1', name: '광화문 광장', objective: '광장의 요괴 군세를 소탕하고 관문을 열어라',
+    fieldType: 'open', enterZ: 6, anchor: [0, 0, -22],
+    clearGate: 'gate_plaza',
     waves: [
-      [ { type: 'grunt', dir: 'FC',  delay: 0.5 },
-        { type: 'grunt', dir: 'FL',  delay: 2.0 },
-        { type: 'grunt', dir: 'FR',  delay: 3.5 } ],
+      [ { type: 'grunt', dir: 'FL', delay: 0.5 }, { type: 'grunt', dir: 'FC', delay: 1.5 }, { type: 'grunt', dir: 'FR', delay: 2.5 } ],
+      [ { type: 'grunt', dir: 'FC' , delay: 0 }, { type: 'marksman', dir: 'FL', delay: 1.5, flightMs: 1500 }, { type: 'grunt', dir: 'FR2', delay: 2.5 } ],
+      [ { type: 'grunt', dir: 'FL', delay: 0 }, { type: 'grunt', dir: 'FR', delay: 0.7 }, { type: 'grunt', dir: 'FC2', delay: 1.4 },
+        { type: 'marksman', dir: 'FL2', delay: 2.5 }, { type: 'marksman', dir: 'FR2', delay: 4.5 }, { type: 'grunt', dir: 'FC', delay: 5 } ],
     ],
+    ultShowcase: 2, clearReward: { ammoRefill: true },
   },
-
-  // ── S2 광화문 광장 — open · 사수 데뷔(완화) · 궁극기 쇼케이스 ──
   {
-    id: 'S2_plaza', name: '광화문 광장', objective: '광장의 요괴 군세를 소탕하라',
-    fieldType: 'open', timerSec: 60,
-    pos: [0, 0, -22], look: [0, 1.4, -42],
-    covers: [{ id: 'wall_low', peekSide: 'TOP', prop: 'lowWall' }],
+    id: 'Z2', name: '관문 통로', objective: '통로를 소탕하며 전진하라',
+    fieldType: 'close', enterZ: -54, anchor: [0, 0, -58],
     waves: [
-      [ { type: 'grunt', dir: 'FL',  delay: 0.0 },
-        { type: 'grunt', dir: 'FC',  delay: 1.0 },
-        { type: 'grunt', dir: 'FR',  delay: 2.0 },
-        { type: 'grunt', dir: 'FC2', delay: 3.0 } ],
-      [ { type: 'grunt', dir: 'FC',  delay: 0.0 },
-        { type: 'marksman', dir: 'FL', delay: 1.5, flightMs: 1500, tutorialDanger: true },
-        { type: 'grunt', dir: 'FR',  delay: 2.5 },
-        { type: 'marksman', dir: 'FR2', delay: 6.0 } ],
-      [ { type: 'grunt', dir: 'FL',  delay: 0.0 },
-        { type: 'grunt', dir: 'FR',  delay: 0.6 },
-        { type: 'grunt', dir: 'FC',  delay: 1.2 },
-        { type: 'grunt', dir: 'FL2', delay: 1.8 },
-        { type: 'grunt', dir: 'FR2', delay: 2.4 },
-        { type: 'grunt', dir: 'FC2', delay: 3.0 },
-        { type: 'marksman', dir: 'HIGH_L', delay: 4.0 },
-        { type: 'marksman', dir: 'HIGH_R', delay: 4.0 } ],
-    ],
-    ultShowcase: 2,            // 웨이브 인덱스 2 시작 시 궁 게이지 스크립트 충전 + 배너
-    clearReward: { ammoRefill: true },
-  },
-
-  // ── S3 폭풍의 관문 — 훅 선언문: w1 좌문설주(peek R) → 노드 교체 → w2 우문설주(peek L) ──
-  {
-    id: 'S3_gate', name: '폭풍의 관문', objective: '관문을 돌파하라',
-    fieldType: 'close', timerSec: 60,
-    pos: [0, 0, -46], look: [0, 1.5, -64],
-    covers: [
-      { id: 'jamb_L', peekSide: 'R', prop: 'gateJambL', offset: [-1.4, 0, 0] },
-      { id: 'jamb_R', peekSide: 'L', prop: 'gateJambR', offset: [1.4, 0, 0] },
-    ],
-    waves: [
-      { cover: 0, enemies: [
-        { type: 'grunt', dir: 'FC',  delay: 0.0 },
-        { type: 'grunt', dir: 'FR',  delay: 1.0 },
-        { type: 'grunt', dir: 'FC2', delay: 2.0 },
-        { type: 'marksman', dir: 'FR2', delay: 3.0, aimIntervalMs: 4000, firstUnfavRelief: true } ] },
-      { cover: 1,
-        preEvent: { fx: 'boilerBurst', banner: '반대편으로!', slideMs: 800 },
-        enemies: [
-        { type: 'grunt', dir: 'FC',  delay: 0.0 },
-        { type: 'grunt', dir: 'FL',  delay: 0.8 },
-        { type: 'grunt', dir: 'FC2', delay: 1.6 },
-        { type: 'marksman', dir: 'FC',  delay: 2.5, aimIntervalMs: 3500, firstUnfavRelief: true },
-        { type: 'marksman', dir: 'FL2', delay: 5.5, aimIntervalMs: 3500 } ] },
-    ],
-    clearReward: { item: 'tonic', count: 1 },
-  },
-
-  // ── S4 경복궁 회랑 A — 강제 L피크 (우견착의 고통 구간) ──
-  {
-    id: 'S4_corridorA', name: '경복궁 회랑', objective: '회랑을 지나 내전으로 향하라',
-    fieldType: 'close', timerSec: 60,
-    pos: [-6, 0, -70], look: [-9, 1.5, -88],
-    covers: [{ id: 'pillar_A', peekSide: 'L', prop: 'pillarCorner' }],
-    waves: [
-      [ { type: 'grunt', dir: 'FC',  delay: 0.0 },
-        { type: 'grunt', dir: 'FL',  delay: 1.2 },
-        { type: 'grunt', dir: 'FC2', delay: 2.2 },
-        { type: 'marksman', dir: 'FC', delay: 3.0, aimIntervalMs: 4000, firstUnfavRelief: true } ],
-      [ { type: 'grunt', dir: 'FL',  delay: 0.0 },
-        { type: 'grunt', dir: 'FC',  delay: 1.0 },
-        { type: 'marksman', dir: 'FL2', delay: 2.0, aimIntervalMs: 3500 },
-        { type: 'thrower', dir: 'HIGH_L', delay: 4.0 } ],
+      [ { type: 'grunt', dir: 'FC', delay: 0.4 }, { type: 'grunt', dir: 'FL', delay: 1.4 }, { type: 'marksman', dir: 'FC2', delay: 2.6, aimIntervalMs: 4000 } ],
+      [ { type: 'grunt', dir: 'FC', delay: 0 }, { type: 'marksman', dir: 'FL2', delay: 1.5, aimIntervalMs: 3500 }, { type: 'thrower', dir: 'FC2', delay: 3 } ],
     ],
     clearReward: { item: 'smoke', count: 1 },
   },
-
-  // ── S5 경복궁 회랑 C — 강제 R피크 (좌견착의 고통 구간 · S4의 미러 · 최고 밀도) ──
   {
-    id: 'S5_corridorC', name: '후원 굽잇길', objective: '후원을 돌파해 보스룸에 도달하라',
-    fieldType: 'close', timerSec: 60,
-    pos: [2, 0, -92], look: [6, 1.5, -110],
-    covers: [{ id: 'wall_C', peekSide: 'R', prop: 'wallCorner' }],
+    id: 'Z3', name: '경복궁 회랑', objective: '회랑을 돌파해 근정전으로 향하라',
+    fieldType: 'close', enterZ: -72, anchor: [-1, 0, -80],
     waves: [
-      [ { type: 'grunt', dir: 'FC',  delay: 0.0 },
-        { type: 'grunt', dir: 'FR',  delay: 1.0 },
-        { type: 'grunt', dir: 'FC2', delay: 2.0 },
-        { type: 'marksman', dir: 'FC', delay: 3.0, aimIntervalMs: 4000, firstUnfavRelief: true } ],
-      [ { type: 'shield', dir: 'FC2', delay: 0.0 },
-        { type: 'grunt', dir: 'FR',  delay: 1.0 },
-        { type: 'grunt', dir: 'FL',  delay: 2.0 },
-        { type: 'marksman', dir: 'FR2', delay: 3.0, aimIntervalMs: 3500 } ],
-      [ { type: 'marksman', dir: 'FC',  delay: 0.0, aimIntervalMs: 3200 },
-        { type: 'marksman', dir: 'FR2', delay: 1.5, aimIntervalMs: 3200 },
-        { type: 'thrower', dir: 'HIGH_R', delay: 3.0 },
-        { type: 'grunt', dir: 'FL',  delay: 4.0 },
-        { type: 'grunt', dir: 'FC2', delay: 5.0 } ],
+      [ { type: 'grunt', dir: 'FC', delay: 0.4 }, { type: 'grunt', dir: 'FR', delay: 1.2 }, { type: 'marksman', dir: 'FC2', delay: 2.4, aimIntervalMs: 3500 } ],
+      [ { type: 'shield', dir: 'FC2', delay: 0 }, { type: 'grunt', dir: 'FR', delay: 1 }, { type: 'marksman', dir: 'FR2', delay: 2.2, aimIntervalMs: 3200 } ],
+      [ { type: 'marksman', dir: 'FC', delay: 0, aimIntervalMs: 3200 }, { type: 'thrower', dir: 'FR2', delay: 1.6 }, { type: 'grunt', dir: 'FL', delay: 2.6 }, { type: 'grunt', dir: 'FC2', delay: 3.4 } ],
     ],
     clearReward: { item: 'tonic', count: 1, ammoRefill: true, unlockWeapon: 'ritual',
                    vignette: '제단의 힘이 깃든 천마도를 얻었다 — 의식탄은 결정적 순간에만' },
   },
-
-  // ── S6 보스룸 — 고붕이 (축소 2페이즈 · boss.js가 커버 전환 주도) ──
   {
-    id: 'S6_boss', name: '근정전 보스룸', objective: '고붕이를 격파하라',
-    fieldType: 'close', timerSec: null, boss: 'gobungi',
-    pos: [0, 0, -118], look: [0, 2.2, -136],
-    covers: [
-      { id: 'altar_C', peekSide: 'TOP', prop: 'brokenAltar', offset: [0, 0, 0] },
-      { id: 'rubble_L', peekSide: 'L', prop: 'rubbleL', offset: [-4, 0, 1] },
-      { id: 'rubble_R', peekSide: 'R', prop: 'rubbleR', offset: [4, 0, 1] },
+    id: 'Z4', name: '근정전 앞뜰', objective: '앞뜰을 소탕해 보스룸 문을 열어라',
+    fieldType: 'close', enterZ: -94, anchor: [0, 0, -101],
+    clearGate: 'gate_boss',
+    waves: [
+      [ { type: 'grunt', dir: 'FL', delay: 0.5 }, { type: 'grunt', dir: 'FR', delay: 1.2 }, { type: 'marksman', dir: 'FC', delay: 2.2, aimIntervalMs: 3200 } ],
     ],
-    waves: [],   // boss.js 가 스폰/페이즈 스크립트 전담
+    clearReward: { item: 'tonic', count: 1 },
+  },
+  {
+    id: 'Z5', name: '근정전 보스룸', objective: '고붕이를 격파하라',
+    fieldType: 'close', enterZ: -113, anchor: [0, 0, -120],
+    boss: 'gobungi', waves: [],
   },
 ];
 
-// 레일 스플라인 포인트 (노드 pos + 중간점) — rail.js 가 CatmullRom 으로 사용
-export const RAIL_POINTS = [
-  [0, 0, 6], [0, 0, 0], [0, 0, -12], [0, 0, -22], [0, 0, -35], [0, 0, -46],
-  [-3, 0, -58], [-6, 0, -70], [-3, 0, -82], [2, 0, -92], [1, 0, -106], [0, 0, -118],
-];
-
-// 공정성 원장 — 부팅 시 실데이터와 대조 assert (debug.js)
-// 중립 = S1 + S2 + S6 P1 (셋 다 TOP) — 의식 화면 고지 문구와 반드시 일치
-export const EDGE_CENSUS = { L: 2, R: 2, NEUTRAL: 3 };
-
-export function computeEdgeCensus() {
-  // 강제 단일 엣지 세그먼트만 집계: S3 은 웨이브별 커버(R,L 각 1), 보스 노드는 P1 중립만 집계
-  let L = 0, R = 0, NEUTRAL = 0;
-  for (const node of LEVEL) {
-    if (node.boss) { NEUTRAL += 1; continue; }               // S6 P1 (TOP)
-    if (node.id === 'S3_gate') { R += 1; L += 1; continue; } // w1 peek R + w2 peek L → 양손 각 1회
-    const side = node.covers[0].peekSide;
-    if (side === 'TOP') NEUTRAL += 1;
-    else if (side === 'L') L += 1;
-    else if (side === 'R') R += 1;
-  }
-  // S3 는 L/R 각각에 1씩 이미 반영됨. 원장 정의: 강제 L = S3w2 + S4 = 2, 강제 R = S3w1 + S5 = 2
-  return { L, R, NEUTRAL };
-}
+export const PLAYER_START = [0, 0, 4];
