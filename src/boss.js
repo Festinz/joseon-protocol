@@ -96,7 +96,7 @@ export function initBossFight(node, isContinue = false) {
       const t = inner.getObjectByName('turret' + i);
       const hit = inner.getObjectByName('hitTurret' + i);
       const actor = { alive: true, headOnly: false, hp: CFG.turretHp, isTurret: true,
-        onHit: (part, dmg) => { actor.hp -= dmg; state.emit('bossPartHit', t);
+        onHit: (part, dmg) => { actor.hp -= dmg; state.emit('bossPartHit', t); emitBossHp();
           if (actor.hp <= 0 && actor.alive) { actor.alive = false; t.visible = false;
             creditKill({ score: 300, weak: true }); state.emit('turretDestroyed', i);
           } } };
@@ -112,10 +112,27 @@ export function initBossFight(node, isContinue = false) {
         if (!boss.coreOpen) { state.emit('shotBlockedByShield', {}); return; }
         coreActor.hp -= dmg * CFG.coreMult; // dmg 는 무기·콤보 반영값, 코어는 ×3
         state.emit('bossCoreHit', coreActor.hp / CFG.coreHp);
+        emitBossHp();
         checkFinale();
         if (coreActor.hp <= 0 && coreActor.alive) { coreActor.alive = false; defeat(); }
       } };
     coreHit.userData.actor = coreActor; registerHittable(coreHit, coreActor);
+    // 해태 몸통(하체) 히트 프록시 — 아무데나 맞아도 피해가 든다 (코어 창 ×3 보너스는 유지)
+    // 코어(y1.45 z1.35)·포탑(y≥1.95) 프록시를 가리지 않도록 하체 영역만 덮는다
+    const bodyHit = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.5, 3.0),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
+    bodyHit.position.set(0, 0.8, -0.2);
+    inner.add(bodyHit);
+    const bodyActor = { alive: true, headOnly: false, isBossBody: true,
+      onHit: (part, dmg) => {
+        if (!boss || boss.phase === 0 || !coreActor.alive) return;
+        coreActor.hp -= dmg * (boss.coreOpen ? 1.2 : 0.35); // 몸샷 감쇠 — 코어 창이 항상 최적
+        state.emit('bossPartHit', bodyHit);
+        emitBossHp();
+        checkFinale();
+        if (coreActor.hp <= 0 && coreActor.alive) { coreActor.alive = false; defeat(); }
+      } };
+    bodyHit.userData.actor = bodyActor; registerHittable(bodyHit, bodyActor);
     boss = { group, inner, turrets, coreActor, coreLid, coreOrb, headCore,
              phase: 1, coreOpen: false, nextAct: now() + 2500, cycleN: 0, finale: false,
              mortarsAlive: 0,
@@ -126,6 +143,7 @@ export function initBossFight(node, isContinue = false) {
   }
   boss.nextAct = now() + 2500;
   state.emit('bossStarted');
+  emitBossHp();
   state.emit('bannerShow', '해태 — 궁을 삼킨 증기 신수');
 }
 
@@ -137,6 +155,14 @@ function setCoreOpen(open) {
 }
 
 function turretsLeft() { return boss.turrets.filter(t => t.actor.alive).length; }
+
+// 통합 보스 HP: 포탑 30% + 코어 70% — "쏘면 바가 닳는다"를 항상 보장
+function emitBossHp() {
+  if (!boss) return;
+  const t = boss.turrets.reduce((s, x) => s + Math.max(0, x.actor.hp), 0) / (4 * CFG.turretHp);
+  const c = Math.max(0, boss.coreActor.hp) / CFG.coreHp;
+  state.emit('bossHpRatio', t * 0.3 + c * 0.7);
+}
 
 function checkFinale() {
   if (boss.finale || boss.coreActor.hp / CFG.coreHp > CFG.finaleAt) return;
@@ -163,6 +189,7 @@ export function bossTakeUltDamage(dmg) {
     checkFinale();
     if (boss.coreActor.hp <= 0 && boss.coreActor.alive) { boss.coreActor.alive = false; defeat(); }
   }
+  emitBossHp();
 }
 
 export function bossBodyPos() { return boss ? boss.group.position : null; }

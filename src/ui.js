@@ -128,8 +128,7 @@ export function initUI({ onRunStart, onRestart }) {
     if (r <= 0) bossHideTimer = setTimeout(() => $('bossbar').classList.add('hidden'), 1200);
   };
   state.on('mulgitHp', (r) => showBossBar('멀 기 트', r));
-  state.on('bossStarted', () => showBossBar('해 태', 1));
-  state.on('bossCoreHit', (r) => showBossBar('해 태', Math.max(0, r)));
+  state.on('bossHpRatio', (r) => showBossBar('해 태', Math.max(0, r)));
   state.on('bossDefeated', () => showBossBar('해 태', 0));
   state.on('gateOpened', () => {});
   state.on('showEnding', showEnding);
