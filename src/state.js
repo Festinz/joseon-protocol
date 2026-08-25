@@ -29,8 +29,13 @@ export const state = {
 
   items: { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start, grenade: ITEMS.grenade.start },
   smokeUntil: 0,
-  selectedThrowable: 'grenade',   // F 로 던질 투척물 (G 전환)
+  selectedThrowable: 'grenade',   // 마지막으로 고른 투척물 (G 전환 / 휠)
+  throwEquipped: null,            // 손에 든 투척물 'grenade'|'smoke'|null — 장착 중엔 좌클릭=투척, 우클릭 무효
+  weaponBeforeThrow: 'rifle',     // 투척물 소진 시 되돌아갈 무기
   ads: false, wheelOpen: false, twheelOpen: false,
+
+  // 회피 (Ctrl)
+  evading: false, evadeUntil: 0, evadeReadyAt: 0,
 
   ult: 0,
   ultCasting: false,
@@ -78,6 +83,8 @@ export function resetRun() {
   state.unlockedWeapons = ['rifle', 'hwando'];
   state.items = { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start, grenade: ITEMS.grenade.start };
   state.selectedThrowable = 'grenade';
+  state.throwEquipped = null; state.weaponBeforeThrow = 'rifle';
+  state.evading = false; state.evadeUntil = 0; state.evadeReadyAt = 0;
   state.ads = false; state.wheelOpen = false;
   state.smokeUntil = 0;
   state.ult = 0; state.ultCasting = false;

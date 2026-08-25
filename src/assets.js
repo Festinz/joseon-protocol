@@ -133,23 +133,25 @@ export function buildSoldier(variant = 'grunt') {
     const sash = new THREE.Mesh(G.torus, MAT.DANGER); sash.name = 'variantMark';
     sash.position.y = 0.34; sash.rotation.set(Math.PI / 2, 0, 0.5); sash.scale.set(0.55, 0.55, 0.9); torso.add(sash);
   }
-  if (variant === 'thrower') { // 등의 화약통
+  if (variant === 'thrower') { // 등의 화약통 (등 = -z)
     const pack = new THREE.Group(); pack.name = 'variantMark';
-    const tube = new THREE.Mesh(G.cyl, MAT.LEATHER); tube.position.set(0, 0.2, 0.3); tube.scale.set(0.28, 0.5, 0.28); pack.add(tube);
-    const fuse = new THREE.Mesh(G.sphere, MAT.DANGER); fuse.position.set(0, 0.48, 0.3); fuse.scale.set(0.12, 0.12, 0.12); pack.add(fuse);
+    const tube = new THREE.Mesh(G.cyl, MAT.LEATHER); tube.position.set(0, 0.2, -0.3); tube.scale.set(0.28, 0.5, 0.28); pack.add(tube);
+    const fuse = new THREE.Mesh(G.sphere, MAT.DANGER); fuse.position.set(0, 0.48, -0.3); fuse.scale.set(0.12, 0.12, 0.12); pack.add(fuse);
     torso.add(pack);
   }
   attachSoldierGLB(torso, body, variant); // 로드돼 있으면 몸체 교체 (없으면 무시)
 
-  if (variant === 'shield') { // 철 방패 — 몸통 가림, 머리만 유효
+  // ⚠ 방향 규약: enemies 는 group.lookAt(player) 로 정렬한다 → three 의 lookAt 은 **+z** 를
+  // 대상 쪽으로 향하게 한다. 따라서 몸에 붙는 파츠의 "정면" 은 +z 다. (-z 는 등)
+  if (variant === 'shield') { // 철 방패 — 몸 앞에 세워 몸통을 가린다. 머리만 유효
     const sh = new THREE.Mesh(G.box, MAT.IRON); sh.scale.set(0.95, 1.25, 0.08);
-    sh.position.set(0, 0.05, -0.42); sh.name = 'shieldPlate'; torso.add(sh);
+    sh.position.set(0, 0.05, 0.42); sh.name = 'shieldPlate'; torso.add(sh);
   }
 
-  const gun = new THREE.Group(); gun.name = 'gunPivot'; gun.position.set(-0.28, 0.15, -0.15); torso.add(gun);
+  const gun = new THREE.Group(); gun.name = 'gunPivot'; gun.position.set(-0.28, 0.15, 0.15); torso.add(gun);
   const barrel = new THREE.Mesh(G.cyl, variant === 'shield' ? MAT.PROXY : MAT.BLACK);
-  barrel.scale.set(0.07, 0.7, 0.07); barrel.rotation.x = Math.PI / 2; barrel.position.z = -0.3; gun.add(barrel);
-  const muzzle = new THREE.Object3D(); muzzle.name = 'muzzle'; muzzle.position.set(0, 0, -0.65); gun.add(muzzle);
+  barrel.scale.set(0.07, 0.7, 0.07); barrel.rotation.x = Math.PI / 2; barrel.position.z = 0.3; gun.add(barrel);
+  const muzzle = new THREE.Object3D(); muzzle.name = 'muzzle'; muzzle.position.set(0, 0, 0.65); gun.add(muzzle);
 
   // 히트 프록시 (렌더 안 됨, 레이캐스트만) — GLB 몸체 기준으로 관대하게
   const hitBody = new THREE.Mesh(G.box, MAT.PROXY); hitBody.name = 'hitBody';
@@ -362,7 +364,21 @@ export function buildGobungi() {
   // 가슴 코어 (P2 딜존, 개폐)
   const chest = new THREE.Group(); chest.name = 'chestCore'; chest.position.set(0, 3.0, -1.15);
   const lid = new THREE.Mesh(G.box, MAT.BRASS); lid.name = 'coreLid'; lid.scale.set(1.5, 1.5, 0.25); chest.add(lid);
-  const core = new THREE.Mesh(G.sphere, MAT.STEAM); core.name = 'coreOrb'; core.scale.set(1.0, 1.0, 0.7); core.position.z = -0.1; chest.add(core);
+  // 코어 오브: 공유 MAT.STEAM 을 복제한다 — 보스 개폐 연출이 다른 증기 파츠를 물들이면 안 된다
+  const core = new THREE.Mesh(G.sphere, MAT.STEAM.clone()); core.name = 'coreOrb'; core.scale.set(1.0, 1.0, 0.7); core.position.z = -0.1; chest.add(core);
+  // 발광 헤일로 — 가산합성 껍질 2겹 + 회전 링. 밤 화면에서 "때릴 곳" 이 한눈에 읽힌다.
+  const shell = (s, op) => {
+    const m = new THREE.Mesh(G.sphere, new THREE.MeshBasicMaterial({
+      color: PALETTE.STEAM, transparent: true, opacity: op, blending: THREE.AdditiveBlending,
+      depthWrite: false, fog: false, side: THREE.BackSide }));
+    m.scale.setScalar(s); return m;
+  };
+  const glow1 = shell(1.95, 0.34); glow1.name = 'coreGlow1'; core.add(glow1);
+  const glow2 = shell(3.10, 0.16); glow2.name = 'coreGlow2'; core.add(glow2);
+  const ring = new THREE.Mesh(G.torus, new THREE.MeshBasicMaterial({
+    color: PALETTE.STEAM, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending,
+    depthWrite: false, fog: false }));
+  ring.name = 'coreRing'; ring.scale.set(1.9, 1.9, 1.9); ring.position.z = -0.12; chest.add(ring);
   const hitCore = new THREE.Mesh(G.sphere, MAT.PROXY); hitCore.name = 'hitCore'; hitCore.scale.set(1.15, 1.15, 0.9); chest.add(hitCore);
   g.add(chest);
 

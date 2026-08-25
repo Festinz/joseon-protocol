@@ -1,7 +1,7 @@
 // ui.js — HUD DOM 갱신 + 오버레이 흐름 (타이틀 → 마패 수여식 → 인게임 → 장계).
 // 견착 피드백 4채널 중 2채널(피크 배지, 노출 미터)이 여기 산다.
 
-import { WEAPONS, SCORE, PLAYER, RAIL } from './config.js';
+import { WEAPONS, SCORE, PLAYER, RAIL, THROW_NAME, EVADE } from './config.js';
 import { state, setHand, now } from './state.js';
 import { exposedFraction, isFavorable } from './cover.js';
 import { getWheelVec } from './input.js';
@@ -60,6 +60,7 @@ export function initUI({ onRunStart, onRestart }) {
   // ── HUD 이벤트 바인딩 ──
   state.on('ammoChanged', renderAmmo);
   state.on('weaponChanged', renderAmmo);
+  state.on('throwableEquipped', () => { renderAmmo(); renderItems(); });
   state.on('weaponUnlocked', (k) => { renderSlots(); showBanner(`${WEAPONS[k].name} 획득 — ${k === 'ritual' ? '3' : '2'}번 키`); });
   state.on('reloadStart', () => { $('reloadmsg').textContent = '재장전…'; });
   state.on('reloadDone', () => { $('reloadmsg').textContent = ''; renderAmmo(); });
@@ -118,6 +119,7 @@ export function initUI({ onRunStart, onRestart }) {
   state.on('twheelShow', (held) => {   // 투척류 휠 (G 홀드)
     $('twheel').classList.toggle('hidden', !held);
     if (held) {
+      $('twhint').textContent = '마우스 위/아래 선택 — G 놓으면 손에 든다 · 좌클릭 투척';
       $('twg').textContent = '×' + state.items.grenade;
       $('tws').textContent = '×' + state.items.smoke;
       $('tw-grenade').classList.toggle('sel', state.selectedThrowable === 'grenade');
@@ -125,6 +127,17 @@ export function initUI({ onRunStart, onRestart }) {
     }
   });
   state.on('meleeSwing', () => {});   // (오디오/뷰모델이 구독 — UI 는 없음)
+  state.on('meleeHeavy', () => showRecap('강 공 — 크게 휩쓴다'));
+  // ── 회피 피드백: 스텝 시 링 플래시, 무효화된 피격은 골드 플래시 ──
+  state.on('evadeStart', () => {
+    const fx = $('evadefx');
+    fx.classList.remove('go', 'iframe'); void fx.offsetWidth; fx.classList.add('go');
+  });
+  state.on('evadeNegated', () => {
+    const fx = $('evadefx');
+    fx.classList.remove('go', 'iframe'); void fx.offsetWidth; fx.classList.add('go', 'iframe');
+  });
+  state.on('evadeBlocked', () => showRecap('회피 재사용 대기 중'));
   state.on('ultCastStart', () => { // 비거 융단폭격 컷씬
     const c = $('cutscene'); c.classList.remove('hidden');
     const img = c.querySelector('img'); img.style.animation = 'none'; void img.offsetWidth; img.style.animation = '';
@@ -157,11 +170,22 @@ function renderHp() {
 }
 function renderAmmo() {
   const w = state.weapons[state.currentWeapon]; const cfg = WEAPONS[state.currentWeapon];
+  if (state.throwEquipped) {                                // 투척물을 손에 들었다 — 좌클릭 투척
+    const k = state.throwEquipped;
+    $('wname').textContent = THROW_NAME[k];
+    $('magval').textContent = state.items[k];
+    $('resval').textContent = '—';
+    $('magchip').classList.toggle('empty', (state.items[k] || 0) === 0);
+    $('reloadmsg').textContent = `좌클릭 투척 · F 로 ${WEAPONS[state.currentWeapon].name} 복귀`;
+    renderSlots();
+    renderWheelHl(state.currentWeapon);
+    return;
+  }
   $('wname').textContent = cfg.name;
-  if (cfg.melee) {                                          // 환도: 탄약 없음
+  if (cfg.melee) {                                          // 환도: 탄약 없음 (좌 경공 / 우 강공)
     $('magval').textContent = '—'; $('resval').textContent = '—';
     $('magchip').classList.remove('empty');
-    $('reloadmsg').textContent = '';
+    $('reloadmsg').textContent = '좌클릭 베기 · 우클릭 강공';
   } else {
     $('magval').textContent = w.mag;                        // PPTX {0}/{1} 표기 — 주머니 좌/우
     $('resval').textContent = w.reserve;
@@ -213,11 +237,16 @@ function renderSlots() {
 }
 function renderItems() {
   $('it-tonic').innerHTML = `탕약 <b>×${state.items.tonic}</b> <span style="opacity:.6">T</span>`;
-  const selG = state.selectedThrowable === 'grenade';
+  const sel = state.throwEquipped || state.selectedThrowable;
+  const held = !!state.throwEquipped;
+  const chip = (k, label) => {
+    const on = sel === k;
+    const col = on ? (held ? 'color:#9fd8d4' : 'color:#ffd24a') : 'opacity:.55';
+    return `<b style="${col}">${held && on ? '▸ ' : ''}${label} ×${state.items[k]}</b>`;
+  };
   $('it-smoke').innerHTML =
-    `<b style="${selG ? 'color:#ffd24a' : 'opacity:.55'}">수류탄 ×${state.items.grenade}</b> · ` +
-    `<b style="${!selG ? 'color:#ffd24a' : 'opacity:.55'}">연막 ×${state.items.smoke}</b> ` +
-    `<span style="opacity:.6">F 투척 · G 전환</span>`;
+    `${chip('grenade', '진천뢰')} · ${chip('smoke', '연막')} ` +
+    `<span style="opacity:.6">${held ? '좌클릭 투척 · F 해제' : 'F 들기 · G 전환'}</span>`;
   $('it-tonic').classList.toggle('none', state.items.tonic === 0);
   $('it-smoke').classList.toggle('none', state.items.smoke === 0 && state.items.grenade === 0);
 }
@@ -274,6 +303,14 @@ export function updateUI() {
   const danger = now() < dangerUntil;
   $('vignette').classList.toggle('warn', danger);
   $('dangermark').classList.toggle('show', danger);
+  // 회피 쿨다운 게이지 (Ctrl) — 0..1
+  const total = EVADE.durMs + EVADE.cooldownMs;
+  const left = Math.max(0, state.evadeReadyAt - now());
+  const el = $('evadepip');
+  if (el) {
+    el.style.setProperty('--k', (1 - left / total).toFixed(3));
+    el.classList.toggle('ready', left <= 0);
+  }
 }
 
 function showEnding() {

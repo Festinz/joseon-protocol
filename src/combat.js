@@ -1,7 +1,7 @@
 // combat.js — 히트스캔(어깨 오리진 + 사선 차단) + 화면공간 스냅 + 명중탄 결정론 판정 + 데미지/사망.
 
 import * as THREE from 'three';
-import { WEAPONS, AIM, PLAYER, SCORE, ULT, DANGER, DODGE } from './config.js';
+import { WEAPONS, AIM, PLAYER, SCORE, ULT, DANGER, DODGE, HEAVY } from './config.js';
 import { state, now } from './state.js';
 import { rig, shoulderWorldPos } from './rail.js';
 import { canFire, consumeShot, muzzleWorld } from './weapons.js';
@@ -56,6 +56,11 @@ function resolveDangerImpact(shot) {
 export function damagePlayer(amount, cause) {
   const p = state.player;
   if (p.state === 'DEAD' || now() < p.invulnUntil) return;
+  if (now() < state.evadeUntil) {          // 회피 무적 — 스텝 전 구간 피격 무효
+    state.emit('evadeNegated', { amount, cause });
+    state.emit('recapLine', '회피! — 무적 판정');
+    return;
+  }
   p.hp = Math.max(0, p.hp - amount);
   p.invulnUntil = now() + PLAYER.postHitInvulnMs;
   state.nodeDamaged = true;
@@ -72,6 +77,7 @@ let lastAimBlocked = false;
 
 export function tryFire() {
   if (state.phase !== 'play' || state.paused) return;
+  if (state.throwEquipped) { state.emit('throwPressed'); return; }  // 투척물 장착 중 = 좌클릭 투척
   if (!canFire()) return;
 
   const wcfg = WEAPONS[state.currentWeapon];
@@ -105,7 +111,7 @@ export function tryFire() {
     }
   } else {
     // 화면공간 관용 스냅 (몸통만 — 약점/머리 전용 적은 스냅 무효)
-    const best = snapAssist(ndc);
+    const best = snapAssist(getNDC());
     if (best) { victim = best.actor; part = 'hitBody'; point = best.pos; }
   }
 
@@ -125,11 +131,11 @@ export function tryFire() {
 
 // ── 환도 근접 베기: 전방 부채꼴 내 최근접 적 1체 ──
 const _fw = new THREE.Vector3(), _to = new THREE.Vector3();
-let lastMelee = 0;
+let meleeReadyAt = 0;   // 경공/강공 공용 스윙 쿨다운 (강공 후딜이 경공에도 걸린다)
 function meleeStrike(cfg) {
   const t = now();
-  if (t - lastMelee < cfg.fireMs) return;
-  lastMelee = t;
+  if (t < meleeReadyAt) return;
+  meleeReadyAt = t + cfg.fireMs;
   const w = state.weapons.hwando; if (w) w.lastFire = t;   // canFire 쿨다운 공유
   state.emit('meleeSwing');
   rig.camera.getWorldDirection(_fw); _fw.y = 0; _fw.normalize();
@@ -155,6 +161,49 @@ function meleeStrike(cfg) {
     state.emit('shotHit', { point: _to.clone(), weak: false, part: 'hitBody' });
   }
 }
+
+// ── 환도 강공 (우클릭) — 소울류: 선딜 → 넓은 부채꼴 전원 타격 → 긴 후딜 ──
+let pendingHeavy = null;
+function tryHeavy() {
+  if (state.phase !== 'play' || state.paused) return;
+  if (state.throwEquipped || pendingHeavy) return;
+  if (state.player.state === 'DEAD' || state.ultCasting) return;
+  const cfg = WEAPONS[state.currentWeapon];
+  if (!cfg?.melee) return;                       // 총기는 우클릭 = ADS (input 에서 이미 분기)
+  const t = now();
+  if (t < meleeReadyAt) return;
+  meleeReadyAt = t + HEAVY.fireMs;
+  const w = state.weapons[state.currentWeapon]; if (w) w.lastFire = t;
+  pendingHeavy = { at: t + HEAVY.windupMs, cfg };
+  state.emit('meleeHeavy');                      // 뷰모델/오디오: 치켜드는 순간부터
+}
+function resolveHeavy(cfg) {
+  rig.camera.getWorldDirection(_fw); _fw.y = 0; _fw.normalize();
+  const pp = rig.dolly.position;
+  const seen = new Set();
+  let hits = 0;
+  for (const h of hittables) {
+    const a = h.userData.actor;
+    if (!a?.alive || seen.has(a) || a.isTurret || a.isCore || a.isBossBody) continue;
+    seen.add(a);
+    if (!a.group) continue;
+    _to.set(a.group.position.x - pp.x, 0, a.group.position.z - pp.z);
+    const d = _to.length();
+    if (d > HEAVY.range) continue;
+    if (_to.normalize().dot(_fw) < Math.cos(HEAVY.arcDeg * Math.PI / 360)) continue;
+    hits += 1;
+    state.shotsFired += 1; state.shotsHit += 1; bumpCombo();
+    a.onHit('hitBody', cfg.dmg * HEAVY.dmgMult * state.comboMult, { weapon: cfg.key, melee: true, heavy: true });
+    _v3.copy(a.group.position); _v3.y = 1.1;
+    state.emit('shotHit', { point: _v3.clone(), weak: false, part: 'hitBody' });
+  }
+  if (!hits) {   // 헛스윙 — 콤보 리셋까지 감수하는 고위험 공격
+    state.shotsFired += 1;
+    state.combo = 0; state.comboMult = 1; state.emit('comboChanged');
+  }
+  state.emit('meleeHeavyImpact', hits);
+}
+state.on('heavyPressed', tryHeavy);
 
 function snapAssist(ndc) {
   const px = (ndc.ndcX * 0.5 + 0.5) * innerWidth;
@@ -206,9 +255,14 @@ function addUlt(n) {
 let lastHoldFire = 0;
 
 export function updateCombat(dt) {
-  // 홀드 연사 (fireMs 간격)
-  if (isFireHeld() && now() - lastHoldFire > WEAPONS[state.currentWeapon].fireMs) {
+  // 홀드 연사 (fireMs 간격) — 투척물은 연사 대상이 아니다 (클릭당 1회)
+  if (!state.throwEquipped && isFireHeld() && now() - lastHoldFire > WEAPONS[state.currentWeapon].fireMs) {
     lastHoldFire = now(); tryFire();
+  }
+
+  // 강공 선딜 완료 → 판정 (setTimeout 대신 루프 기반 — 일시정지에 안전)
+  if (pendingHeavy && now() >= pendingHeavy.at) {
+    const ph = pendingHeavy; pendingHeavy = null; resolveHeavy(ph.cfg);
   }
 
   // 명중탄 비행/임팩트

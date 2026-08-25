@@ -31,6 +31,11 @@ export function initAudio() {
     setTimeout(() => sfxBolt(), ms * 0.88);
   });
   state.on('meleeSwing', () => sfxWhoosh());
+  state.on('meleeHeavy', () => { sfxWhoosh(); setTimeout(() => sfxWhoosh(), 220); }); // 강공: 치켜듦 → 내리침
+  state.on('meleeHeavyImpact', (hits) => { if (hits) sfxBoom(0.35); });
+  state.on('evadeStart', () => sfxWhoosh());          // 회피 스텝
+  state.on('evadeNegated', () => sfxTick());          // 무적으로 흘려낸 피격
+  state.on('evadeBlocked', () => sfxTick());          // 쿨다운 중
   state.on('fireBlocked', () => sfxTick());
   state.on('ultLockedTry', () => sfxStatic());
   state.on('ultStrike', () => sfxBoom());

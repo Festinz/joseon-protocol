@@ -152,7 +152,29 @@
     mask-image:radial-gradient(circle, transparent 52%, #000 56%, #000 74%, transparent 78%)}
   #slashfx.go::before{animation:slashArc .22s ease-out forwards}
   @keyframes slashArc{0%{opacity:0; transform:rotate(-40deg) scale(.7)} 18%{opacity:1} 100%{opacity:0; transform:rotate(150deg) scale(1.15)}}
+  /* 강공: 더 크고 느린 호 + 잔상 (소울류 대검 문법) */
+  #slashfx.go.heavy{width:76vmin; height:76vmin; margin:-38vmin 0 0 -38vmin}
+  #slashfx.go.heavy::before{animation:slashHeavy .42s cubic-bezier(.2,.8,.3,1) forwards}
+  @keyframes slashHeavy{0%{opacity:0; transform:rotate(-95deg) scale(.55)} 40%{opacity:0} 52%{opacity:1}
+    100%{opacity:0; transform:rotate(185deg) scale(1.35)}}
   body.hand-L #slashfx{transform:scaleX(-1)}
+
+  /* ── 회피 (Ctrl): 스텝 링 플래시 · 무적으로 흘려낸 피격은 금색 ── */
+  #evadefx{position:fixed; inset:0; pointer-events:none; z-index:11; opacity:0}
+  #evadefx.go{animation:evadeRing .30s ease-out forwards}
+  #evadefx.go.iframe{animation:evadeRing .46s ease-out forwards; --evc:255,210,74}
+  @keyframes evadeRing{
+    0%{opacity:0; box-shadow:inset 0 0 0 0 rgba(var(--evc,159,216,212),.0)}
+    12%{opacity:1; box-shadow:inset 0 0 90px 18px rgba(var(--evc,159,216,212),.42)}
+    100%{opacity:0; box-shadow:inset 0 0 200px 60px rgba(var(--evc,159,216,212),0)}}
+  /* 회피 쿨다운 핍 — --k 0..1 이 차오른다 */
+  #evadepip{display:flex; align-items:center; gap:7px; font-size:11.5px; letter-spacing:.06em;
+    color:#8f94b5; margin-top:3px}
+  #evadepip .bar{position:relative; width:56px; height:4px; border-radius:2px; background:rgba(255,255,255,.12); overflow:hidden}
+  #evadepip .bar::after{content:''; position:absolute; inset:0; transform-origin:left;
+    transform:scaleX(var(--k,1)); background:#5d6a8c; transition:transform .06s linear}
+  #evadepip.ready{color:#9fd8d4}
+  #evadepip.ready .bar::after{background:#9fd8d4; box-shadow:0 0 8px rgba(159,216,212,.7)}
 
   /* ── ADS 조준경 (스팀펑크 모노큘러) ── */
   #scope{position:fixed; inset:0; z-index:9; pointer-events:none; opacity:0}
@@ -232,12 +254,13 @@
 </div>
 
 <div id="slashfx"></div>
+<div id="evadefx"></div>
 
 <!-- 투척류 휠 (G 홀드) -->
 <div id="twheel" class="hud hidden">
-  <div class="twchip sel" id="tw-grenade">수류탄 <b id="twg">×2</b></div>
-  <div class="twchip" id="tw-smoke">연막탄 <b id="tws">×0</b></div>
-  <div class="twhint">마우스 위/아래 선택 — G 놓으면 확정 · 탭 = 즉시 전환</div>
+  <div class="twchip sel" id="tw-grenade">진천뢰 <b id="twg">×2</b></div>
+  <div class="twchip" id="tw-smoke">연막 캡슐 <b id="tws">×0</b></div>
+  <div class="twhint">마우스 위/아래 선택 — G 놓으면 손에 든다 · 좌클릭 투척</div>
 </div>
 
 <!-- ADS 조준경 오버레이 (우클릭) -->
@@ -314,7 +337,8 @@
   </div>
   <div id="items">
     <div class="item" id="it-tonic">탕약 <b>×2</b> <span style="opacity:.6">T</span></div>
-    <div class="item" id="it-smoke">연막 <b>×0</b> <span style="opacity:.6">G</span></div>
+    <div class="item" id="it-smoke">진천뢰 <b>×2</b> <span style="opacity:.6">F 들기 · G 전환</span></div>
+    <div id="evadepip" class="ready"><span>회피 Ctrl</span><span class="bar"></span></div>
   </div>
 </div>
 <div id="plate-r" class="hud">
@@ -345,8 +369,9 @@
   <p>한성에 증기 요괴가 창궐하였다.<br>어명을 받든 암행어사가 되어 광화문을 지나 경복궁을 수복하라.</p>
   <button class="btn" id="startbtn">출 정</button>
   <div class="keys">
-    <b>WASD</b> 이동 &nbsp; <b>좌클릭</b> 사격 &nbsp; <b>우클릭</b> 조준(스코프) &nbsp; <b>Shift</b> 질주 &nbsp; <b>C</b> 웅크리기<br>
-    <b>Z/X</b> 좌우 기울이기 &nbsp; <b>R</b> 재장전 &nbsp; <b>F</b> 투척 &nbsp; <b>G</b> 투척물 전환 &nbsp; <b>Q</b> 궁극기 &nbsp; <b>Space</b> 무기 전환 &nbsp; <b>T</b> 탕약 &nbsp; <b>M</b> 음소거
+    <b>WASD</b> 이동 &nbsp; <b>Ctrl</b> 회피(무적) &nbsp; <b>Shift</b> 질주 &nbsp; <b>C</b> 웅크리기 &nbsp; <b>Z/X</b> 좌우 기울이기<br>
+    <b>좌클릭</b> 사격 · 투척 &nbsp; <b>우클릭</b> 조준 <span style="opacity:.65">(환도는 강공 · 투척물은 없음)</span> &nbsp; <b>R</b> 재장전 &nbsp; <b>E</b> 암살<br>
+    <b>F</b> 투척물 들기/내리기 &nbsp; <b>G</b> 투척물 전환(홀드=휠) &nbsp; <b>Space</b> 무기 전환(홀드=휠) &nbsp; <b>Q</b> 궁극기 &nbsp; <b>T</b> 탕약 &nbsp; <b>M</b> 음소거
   </div>
   <p style="margin-top:18px; font-size:12px; color:#8f94b5">PC · 마우스 전용 · 사운드 권장</p>
   <div id="loaderr"></div>

@@ -115,6 +115,30 @@ export const MOVE = {
 // 발사 순간의 플레이어 위치로 날아간다 → 이동으로 벗어나거나(반경 밖) 벽/엄폐물로 사선을 끊으면 회피.
 export const DODGE = { hitRadius: 0.85, crouchBonus: 0.25 };
 
+// ── 환도 강공 (우클릭) — 소울류 문법: 느리고, 크고, 아프다 ──
+// 경공(좌클릭)은 빠르고 단일 타겟. 강공은 선딜 후 넓은 부채꼴 전원 타격 + 긴 후딜.
+export const HEAVY = {
+  dmgMult: 2.4,        // 환도 34 → 강공 ≈82 (콤보 배율 별도)
+  fireMs: 900,         // 후딜 — 헛치면 크게 손해 (경/강 공용 쿨다운)
+  windupMs: 240,       // 치켜드는 선행 동작. 판정은 이 뒤에 난다
+  range: 3.2, arcDeg: 150,
+  staggerMs: 700,
+};
+
+// ── 회피 (Ctrl) — 입력 방향 사이드스텝. 스텝 전 구간 무적 ──
+export const EVADE = {
+  distance: 3.6,       // 스텝 총 이동거리(m)
+  durMs: 330,
+  iframeMs: 330,       // = durMs (스텝 내내 피격 무효 — "확실한 피드백")
+  cooldownMs: 820,     // 스텝 종료 후 재사용 대기
+  rollDeg: 12,         // 좌우 스텝 시 카메라 롤
+  dip: 0.11,           // 몸을 낮추는 상하 딥(m)
+  fovPunch: 7,
+};
+
+// 투척물 표기명 (손에 드는 무기로 취급 — 좌클릭 투척)
+export const THROW_NAME = { grenade: '진천뢰', smoke: '연막 캡슐' };
+
 // ── 성능 / 레트로 렌더 ──
 export const PERF = {
   maxPixelRatio: 2, cameraFar: 200, fogDensity: 0.0055,

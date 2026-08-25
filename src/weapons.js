@@ -71,6 +71,7 @@ function showWeapon(key) {
 function trySwitch(key) {
   if (!state.unlockedWeapons.includes(key) || key === state.currentWeapon) return;
   state.currentWeapon = key; switchingUntil = now() + 250;
+  if (WEAPONS[key].melee) state.ads = false;   // 환도엔 조준경이 없다 (우클릭 = 강공)
   showWeapon(key);
   state.emit('weaponChanged', key);
 }
@@ -79,7 +80,7 @@ export function canFire() {
   const w = state.weapons[state.currentWeapon];
   const cfg = WEAPONS[state.currentWeapon];
   const t = now();
-  return state.player.state !== 'DEAD' && !w.reloading && w.mag > 0 &&
+  return state.player.state !== 'DEAD' && !state.throwEquipped && !w.reloading && w.mag > 0 &&
          t - w.lastFire >= cfg.fireMs && t > switchingUntil && t > state.player.usingItemUntil && !state.ultCasting;
 }
 

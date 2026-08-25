@@ -1,8 +1,14 @@
 // input.js — 자유이동판: Pointer Lock + WASD + Q/E 리닝 + 중앙 조준.
 
 import { state } from './state.js';
+import { WEAPONS } from './config.js';
 
-export const keys = { w: false, a: false, s: false, d: false, shift: false, ctrl: false, z: false, x: false };
+export const keys = { w: false, a: false, s: false, d: false, shift: false, crouch: false, z: false, x: false };
+
+// 우클릭(ADS)이 허용되는가 — 근접(환도)/투척물 장착 중엔 조준경 자체가 없다
+export function adsAllowed() {
+  return !state.throwEquipped && !WEAPONS[state.currentWeapon]?.melee;
+}
 let lmbHeld = false, rmbHeld = false;
 let mdx = 0, mdy = 0;
 let spaceTimer = 0, gTimer = 0;
@@ -35,7 +41,12 @@ export function initInput() {
     if (!isLocked()) { canvas().requestPointerLock(); return; }
     if (state.paused) return;
     if (e.button === 0) { lmbHeld = true; state.emit('firePressed'); }
-    if (e.button === 2) { rmbHeld = true; state.ads = true; }     // 우클릭 = 견착(ADS)
+    if (e.button === 2) {                                         // 우클릭 — 든 무기에 따라 갈린다
+      rmbHeld = true;
+      if (state.throwEquipped) return;                            // 투척물: 조준 없음 (무효)
+      if (WEAPONS[state.currentWeapon]?.melee) { state.emit('heavyPressed'); return; } // 환도: 강공
+      state.ads = true;                                           // 총기: 견착(ADS)
+    }
   });
   document.addEventListener('mouseup', (e) => {
     if (e.button === 0) lmbHeld = false;
@@ -75,8 +86,9 @@ export function initInput() {
       case 'KeyS': keys.s = true; break;
       case 'KeyD': keys.d = true; break;
       case 'ShiftLeft': case 'ShiftRight': keys.shift = true; break;
-      case 'ControlLeft': keys.ctrl = true; e.preventDefault(); break;
-      case 'KeyC': keys.ctrl = !keys.ctrl; break;               // C = 웅크리기 토글 (은신)
+      case 'ControlLeft': case 'ControlRight':                   // Ctrl = 회피 스텝 (무적)
+        e.preventDefault(); state.emit('evadePressed'); break;
+      case 'KeyC': keys.crouch = !keys.crouch; break;           // C = 웅크리기 토글 (은신)
       case 'KeyZ': keys.z = true; break;                        // 좌 리닝
       case 'KeyX': keys.x = true; break;                        // 우 리닝
       case 'KeyR': state.emit('reloadPressed'); break;
@@ -84,7 +96,7 @@ export function initInput() {
       case 'KeyG': // 탭 = 투척물 토글, 홀드(280ms+) = 투척류 휠
         gTimer = setTimeout(() => { gTimer = 0; state.emit('throwWheel', true); }, 280);
         break;
-      case 'KeyF': state.emit('grenadePressed'); break;         // F = 수류탄
+      case 'KeyF': state.emit('toggleThrowable'); break;        // F = 투척물 손에 들기/내리기
       case 'KeyE': state.emit('assassinatePressed'); break;     // E = 암살/상호작용
       case 'KeyQ': state.emit('ultPressed'); break;             // Q = 궁극기
       case 'Space': // 탭 = 다음 무기 전환, 홀드(240ms+) = 무기 휠
@@ -104,7 +116,6 @@ export function initInput() {
       case 'KeyS': keys.s = false; break;
       case 'KeyD': keys.d = false; break;
       case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break;
-      case 'ControlLeft': keys.ctrl = false; break;
       case 'KeyZ': keys.z = false; break;
       case 'KeyX': keys.x = false; break;
       case 'Space':

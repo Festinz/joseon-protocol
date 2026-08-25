@@ -77,10 +77,24 @@ export function initBossFight(node, isContinue = false) {
         if (t) t.position.set(...mounts[i]);
         if (hit) hit.position.set(...mounts[i]);
       }
-      for (const n of ['coreLid', 'coreOrb', 'hitCore']) {
-        const o = inner.getObjectByName(n); if (o) { o.position.set(0, 1.45, 1.35); }
+      // 코어를 해태 GLB 의 가슴 정중앙에 붙인다.
+      // 이전에는 좌표를 chestCore(로컬 y3.0 / z-1.15) 기준으로 줘서 코어가 몸 위 허공에 떠 있었다.
+      // → chestCore 자체를 옮기고, 자식들은 판(lid) 기준 로컬 오프셋만 갖게 한다.
+      // 실측(런타임 레이캐스트): 몸통 전면 z≈-131.3, 몸 중심 y≈2.5, anchor(0,0,-133.6) · scale 1.5
+      const chest = inner.getObjectByName('chestCore');
+      if (chest) {
+        chest.position.set(0, 1.67, 1.63);     // = 월드 (0, 2.5, -131.15) — 가슴 표면 바로 앞
+        chest.rotation.set(0, 0, 0);
+        // 치수도 함께 축소 — 원래 값은 절차 고붕이(≈7m)용이라 해태를 통째로 덮어버린다
+        const lid = inner.getObjectByName('coreLid');
+        if (lid) { lid.position.set(0, 0, 0); lid.scale.set(0.62, 0.62, 0.10); lid.userData.baseY = 0; lid.userData.rise = 0.6; }
+        const orb = inner.getObjectByName('coreOrb');
+        if (orb) { orb.position.set(0, 0, 0.10); orb.scale.set(0.36, 0.36, 0.26); } // 월드 지름 ≈0.54m
+        const hc2 = inner.getObjectByName('hitCore');
+        if (hc2) { hc2.position.set(0, 0, 0.05); hc2.scale.set(0.62, 0.62, 0.50); }   // 판정은 넉넉히
+        const rg = inner.getObjectByName('coreRing');
+        if (rg) { rg.position.set(0, 0, 0.14); rg.userData.base = 0.45; }             // 맥동 배율의 기준값
       }
-      const lid = inner.getObjectByName('coreLid'); if (lid) lid.userData.baseY = 1.45;
       const hc = inner.getObjectByName('headCore'); if (hc) hc.visible = false;
     };
     const swapBody = (path, scale) => new GLTFLoader().load(path, (g) => {
@@ -106,6 +120,7 @@ export function initBossFight(node, isContinue = false) {
     const coreHit = inner.getObjectByName('hitCore');
     const coreLid = inner.getObjectByName('coreLid');
     const coreOrb = inner.getObjectByName('coreOrb');
+    const coreRing = inner.getObjectByName('coreRing');
     const headCore = inner.getObjectByName('headCore');
     const coreActor = { alive: true, headOnly: false, hp: CFG.coreHp, isCore: true,
       onHit: (part, dmg) => {
@@ -133,7 +148,7 @@ export function initBossFight(node, isContinue = false) {
         if (coreActor.hp <= 0 && coreActor.alive) { coreActor.alive = false; defeat(); }
       } };
     bodyHit.userData.actor = bodyActor; registerHittable(bodyHit, bodyActor);
-    boss = { group, inner, turrets, coreActor, coreLid, coreOrb, headCore,
+    boss = { group, inner, turrets, coreActor, coreLid, coreOrb, coreRing, headCore,
              phase: 1, coreOpen: false, nextAct: now() + 2500, cycleN: 0, finale: false,
              mortarsAlive: 0,
              mv: { mode: 'PROWL', until: 0, nextMeleeAt: now() + 4200, target: new THREE.Vector3(),
@@ -147,11 +162,38 @@ export function initBossFight(node, isContinue = false) {
   state.emit('bannerShow', '해태 — 궁을 삼킨 증기 신수');
 }
 
+const CORE_OPEN_COL = 0x9fd8d4, CORE_SHUT_COL = 0xd8a03a;   // 열림=증기 청록 / 닫힘=잠긴 호박색
 function setCoreOpen(open) {
   boss.coreOpen = open;
-  boss.coreLid.position.y = (boss.coreLid.userData.baseY || 0) + (open ? 1.3 : 0);
+  // 뚜껑이 올라가는 높이 — 절차 고붕이는 1.3, 해태 GLB 는 몸집이 작아 덜 올린다 (repositionParts 가 지정)
+  boss.coreLid.position.y = (boss.coreLid.userData.baseY || 0) + (open ? (boss.coreLid.userData.rise ?? 1.3) : 0);
+  const col = open ? CORE_OPEN_COL : CORE_SHUT_COL;
+  boss.coreOrb.material.color.setHex(col);
+  boss.coreOrb.material.emissive.setHex(col);
   boss.coreOrb.material.emissiveIntensity = open ? 1.6 : 0.4;
+  for (const n of ['coreGlow1', 'coreGlow2']) {
+    const g = boss.coreOrb.getObjectByName(n); if (g) g.material.color.setHex(col);
+  }
+  if (boss.coreRing) boss.coreRing.material.color.setHex(col);
   state.emit('bossCoreState', open);
+}
+
+// 코어 맥동 — 열렸을 땐 빠르고 밝게(=쳐라), 닫혔을 땐 느리고 어둡게(=아직이다)
+function updateCoreGlow(t) {
+  const c = boss.coreOrb; if (!c) return;
+  const open = boss.coreOpen;
+  const pulse = 0.5 + 0.5 * Math.sin(t * (open ? 0.009 : 0.0034));
+  c.material.emissiveIntensity = open ? 1.15 + pulse * 1.5 : 0.32 + pulse * 0.34;
+  const g1 = c.getObjectByName('coreGlow1'), g2 = c.getObjectByName('coreGlow2');
+  if (g1) { g1.material.opacity = (open ? 0.30 : 0.10) + pulse * (open ? 0.32 : 0.07); g1.scale.setScalar(1.95 + pulse * (open ? 0.45 : 0.12)); }
+  if (g2) { g2.material.opacity = (open ? 0.14 : 0.05) + pulse * (open ? 0.18 : 0.04); g2.scale.setScalar(3.10 + pulse * (open ? 0.9 : 0.2)); }
+  const r = boss.coreRing;
+  if (r) {
+    r.rotation.z = t * (open ? 0.0022 : 0.0007);
+    r.material.opacity = (open ? 0.55 : 0.22) + pulse * (open ? 0.40 : 0.10);
+    const s = ((open ? 1.9 : 1.65) + pulse * (open ? 0.55 : 0.12)) * (r.userData.base ?? 1);
+    r.scale.set(s, s, s);
+  }
 }
 
 function turretsLeft() { return boss.turrets.filter(t => t.actor.alive).length; }
@@ -200,6 +242,7 @@ export function updateBoss(dt) {
 
   updateMelee(dt);   // 해태 근접 이동/돌진/도약/할퀴기 — 사격 패턴과 병행
   updateAura();
+  updateCoreGlow(t);  // 가슴 코어 발광 — 때릴 곳 유도
 
   if (boss.phase === 1) {
     // P1: 포탑 로테이션 명중탄

@@ -11,6 +11,7 @@ const SPRITES = {
   hwando: 'assets/vm/dagger.png',     // 근접 — 단도/환도 아트
   dagger: 'assets/vm/dagger.png',
   grenade: 'assets/vm/grenade.png',
+  smoke: 'assets/vm/grenade.png',     // 전용 아트 없음 — 수류탄 공유
   mapae: 'assets/vm/mapae.png',
 };
 
@@ -30,6 +31,7 @@ export function initVmSprite() {
 
   state.on('handChosen', (h) => document.body.classList.toggle('hand-L', h === 'L'));
   state.on('weaponChanged', refresh);
+  state.on('throwableEquipped', refresh);   // 투척물을 들면 뷰모델이 통째로 바뀐다
   state.on('shotFired', () => { kickY = 26; kickR = 3.5; });
   state.on('reloadStart', (key) => {
     const ms = (WEAPONS[key || state.currentWeapon]?.reloadMs || 600) + 250;
@@ -39,14 +41,23 @@ export function initVmSprite() {
   state.on('meleeSwing', () => {
     override = { sprite: SPRITES.dagger, until: now() + 340, anim: 'slash', dur: 340 };
     const fx = document.getElementById('slashfx');           // 참격 궤적 플래시
-    if (fx) { fx.classList.remove('go'); void fx.offsetWidth; fx.classList.add('go'); }
+    if (fx) { fx.classList.remove('go', 'heavy'); void fx.offsetWidth; fx.classList.add('go'); }
+  });
+  state.on('meleeHeavy', () => {                             // 강공: 크게 치켜들었다 내리친다
+    const dur = 640;
+    override = { sprite: SPRITES.dagger, until: now() + dur, anim: 'heavy', dur };
+    const fx = document.getElementById('slashfx');
+    if (fx) { fx.classList.remove('go', 'heavy'); void fx.offsetWidth; fx.classList.add('go', 'heavy'); }
   });
   state.on('grenadeThrown', () => { override = { sprite: SPRITES.grenade, until: now() + 650, anim: 'throw' }; });
   state.on('ultCastStart', () => { override = { sprite: SPRITES.mapae, until: now() + 1700, anim: 'raise' }; });
   refresh();
 }
 
-function cur() { return SPRITES[state.currentWeapon] || SPRITES.rifle; }
+function cur() {
+  if (state.throwEquipped) return SPRITES[state.throwEquipped] || SPRITES.grenade;
+  return SPRITES[state.currentWeapon] || SPRITES.rifle;
+}
 function refresh() { if (img) img.src = cur(); }
 
 export function updateVmSprite(dt) {
@@ -60,8 +71,9 @@ export function updateVmSprite(dt) {
     if (t > override.until) { override = null; refresh(); }
   }
 
-  // ADS 보간
-  adsT += ((state.ads ? 1 : 0) - adsT) * Math.min(1, dts * 9);
+  // ADS 보간 — 근접/투척물은 조준경 자체가 없다
+  const adsGoal = (state.ads && !state.throwEquipped && !WEAPONS[state.currentWeapon]?.melee) ? 1 : 0;
+  adsT += (adsGoal - adsT) * Math.min(1, dts * 9);
 
   // 룩-스웨이 (총이 시선을 한 박자 늦게 따라오는 관성) — 스프링-댐퍼
   const ldx = state._lookDX || 0, ldy = state._lookDY || 0;
@@ -94,6 +106,14 @@ export function updateVmSprite(dt) {
       scale = 1 + 0.12 * Math.sin(s * Math.PI);
     }
     if (override.anim === 'throw') { ay = 30 - 90 * Math.sin(Math.min(1, k * 1.3) * Math.PI); ar = -6 * Math.sin(k * Math.PI); }
+    if (override.anim === 'heavy') {                        // 강공: 윈드업(치켜듦) → 내리찍기
+      if (k < 0.42) { const p = k / 0.42; ax = 70 * p; ay = -130 * p; ar = 58 * p; scale = 1 + 0.12 * p; }
+      else {
+        const p = (k - 0.42) / 0.58, s = 1 - Math.pow(1 - p, 3);
+        ax = 70 - 330 * s; ay = -130 + 250 * s; ar = 58 - 145 * s;
+        scale = 1.12 + 0.26 * Math.sin(p * Math.PI);
+      }
+    }
     if (override.anim === 'raise') { ay = 40 - 70 * Math.min(1, k * 2); scale = 1.06; }
     if (override.anim === 'reload') {
       // 택티컬 리로드: 캔트(0~0.25) → 탄창 탈착 홱(0.25~0.5) → 삽탄(0.5~0.75) → 노리쇠 스냅(0.75~1)
