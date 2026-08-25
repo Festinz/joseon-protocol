@@ -39,6 +39,8 @@ export function initAudio() {
   state.on('fireBlocked', () => sfxTick());
   state.on('ultLockedTry', () => sfxStatic());
   state.on('ultStrike', () => sfxBoom());
+  state.on('singijeonLaunch', () => sfxWhistle());     // 발사 — 화전 특유의 쉬익
+  state.on('singijeonImpact', () => sfxBoom(0.8));
   state.on('bombThrown', () => sfxWhistle());
   state.on('bombExploded', () => sfxBoom(0.7));
   state.on('bombShotDown', () => sfxKill());

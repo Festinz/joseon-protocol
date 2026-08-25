@@ -12,6 +12,7 @@ import { updateCombat, registerBlocker, clearDangerShots } from './combat.js';
 import { initEnemies, updateEnemies, clearAll, getActors, spawnMortars } from './enemies.js';
 import { initBossScene, resetBoss } from './boss.js';
 import { initSattoScene, resetSatto } from './satto.js';
+import { initSingijeon, updateSingijeon, resetSingijeon } from './singijeon.js';
 import { initThrowables, updateThrowables } from './throwables.js';
 import { initPickups, updatePickups, clearPickups } from './pickups.js';
 import { initVmSprite, updateVmSprite } from './vmsprite.js';
@@ -76,6 +77,7 @@ initVmSprite();
 initEnemies(scene);
 initBossScene(scene);
 initSattoScene(scene);
+initSingijeon(scene);
 initThrowables(scene);
 initPickups(scene);
 initVfx(scene);
@@ -86,7 +88,7 @@ initDebugOverlay(renderer);
 state.on('bossMortar', (n) => spawnMortars(n));
 state.on('debugKillWave', () => { for (const a of [...getActors()]) if (a.alive) a.onHit(a.headOnly ? 'hitHead' : 'hitBody', 9999, {}); });
 state.on('debugJump', (idx) => {
-  clearAll(); clearDangerShots(); resetBoss(); resetSatto(); clearPickups();
+  clearAll(); clearDangerShots(); resetBoss(); resetSatto(); resetSingijeon(); clearPickups();
   const z = ZONES[Math.min(idx, ZONES.length - 1)];
   teleport(z.anchor[0], z.enterZ - 2); // 존 경계 안쪽으로
 });
@@ -112,6 +114,7 @@ function loop(t) {
     updateCombat(dt);
     updateWeapons(dt);
     updateThrowables(dt);
+    updateSingijeon(dt);
     updatePickups(dt);
   }
   updateVfx(dt);
@@ -146,7 +149,7 @@ if (params.get('debug') === '1') {
       const dt = 16.7 * (state._timescale || 1);
       if (state.phase === 'play' && !state.paused) {
         if (state._god) state.player.hp = Math.max(state.player.hp, 100);
-        updateRail(dt); updateEnemies(dt); updateFlow(dt); updateCombat(dt); updateWeapons(dt); updateThrowables(dt); updatePickups(dt);
+        updateRail(dt); updateEnemies(dt); updateFlow(dt); updateCombat(dt); updateWeapons(dt); updateThrowables(dt); updateSingijeon(dt); updatePickups(dt);
       }
       updateVfx(dt); updateVmSprite(dt); updateUI();
     }

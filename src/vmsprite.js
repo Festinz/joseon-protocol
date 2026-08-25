@@ -12,6 +12,7 @@ const SPRITES = {
   dagger: 'assets/vm/dagger.png',
   grenade: 'assets/vm/grenade.png',
   mapae: 'assets/vm/mapae.png',
+  singijeon: 'assets/vm/singijeon.png',
 };
 
 let img, wrap, scopeEl, scopeSvg, xhairEl;
@@ -56,7 +57,12 @@ export function initVmSprite() {
   });
   state.on('grenadeThrown', () => { override = { sprite: SPRITES.grenade, until: now() + 650, anim: 'throw' }; });
   state.on('meleeHeavyCancel', () => { if (override?.anim === 'heavy') { override = null; refresh(); } });
-  state.on('ultCastStart', () => { override = { sprite: SPRITES.mapae, until: now() + 1700, anim: 'raise' }; });
+  // 궁극기: 마패를 들어올리는 대신 신기전 발사기를 견착한다
+  state.on('ultCastStart', () => {
+    const dur = 3200;
+    override = { sprite: SPRITES.singijeon, until: now() + dur, anim: 'singijeon', dur };
+  });
+  state.on('singijeonLaunch', () => { kickY = 34; kickR = 4.2; });   // 발사할 때마다 반동
   refresh();
 }
 
@@ -137,6 +143,13 @@ export function updateVmSprite(dt) {
       }
     }
     if (override.anim === 'raise') { ay = 40 - 70 * Math.min(1, k * 2); scale = 1.06; }
+    if (override.anim === 'singijeon') {
+      // 들어올림(0~22%) → 견착 유지하며 연속 발사(22~78%, 미세 진동) → 내림(78~100%)
+      if (k < 0.22) { const p = k / 0.22, e = p * p * (3 - 2 * p); ay = 120 * (1 - e); ar = -16 * (1 - e); scale = 0.94 + 0.06 * e; }
+      else if (k < 0.78) { const p = (k - 0.22) / 0.56;
+        ay = Math.sin(p * Math.PI * 9) * 5; ax = Math.sin(p * Math.PI * 7) * 4; ar = 1.6 * Math.sin(p * Math.PI * 11); scale = 1; }
+      else { const p = (k - 0.78) / 0.22, e = p * p * (3 - 2 * p); ay = 120 * e; ar = -16 * e; scale = 1 - 0.06 * e; }
+    }
     if (override.anim === 'reload') {
       // 택티컬 리로드: 캔트(0~0.25) → 탄창 탈착 홱(0.25~0.5) → 삽탄(0.5~0.75) → 노리쇠 스냅(0.75~1)
       if (k < 0.25) { const p = k / 0.25; ay = 55 * p; ar = 22 * p; ax = -12 * p; }

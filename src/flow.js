@@ -12,6 +12,7 @@ import { refillAmmo } from './weapons.js';
 import { resetWheelVec } from './input.js';
 import { initBossFight, updateBoss, bossActive, bossTakeUltDamage } from './boss.js';
 import { spawnSatto, updateSatto, sattoActive, resetSatto, sattoTakeDamage } from './satto.js';
+import { fireSingijeon, SGJ } from './singijeon.js';
 
 const zoneState = ZONES.map(() => ({ started: false, cleared: false, waveIdx: 0, waveActive: false, waveStartAt: 0 }));
 let deadAt = 0;
@@ -131,16 +132,15 @@ function tryUlt() {
   state.ultCasting = true; state.ult = 0; state.emit('ultChanged');
   state.player.invulnUntil = now() + ULT.castMs + 500;
   state.emit('ultCastStart');
-  state.emit('bannerShow', '「어사 신창준, 좌표 송신. 증기 폭격 요청!」');
-  for (let k = 0; k < 5; k++) setTimeout(() => state.emit('ultStrike', k), 1800 + k * 300);
+  state.emit('bannerShow', '「어사 신창준, 좌표 송신. 신기전 일제사격!」');
+  clearDangerShots();                      // 시전 시작과 함께 날아오던 명중탄은 무효
+  // 컷씬(2.6s) 뒤에 실제 로켓이 나간다 — 화면이 돌아오는 순간 하늘에서 떨어지도록
+  const delay = Math.max(0, ULT.castMs - SGJ.flightMs);
+  setTimeout(() => { if (state.phase === 'play') fireSingijeon(); }, delay);
   setTimeout(() => {
-    for (const a of [...getActors()]) if (a.alive) a.onHit(a.headOnly ? 'hitHead' : 'hitBody', 9999, {});
-    if (bossActive()) bossTakeUltDamage(ULT.bossDmg);
-    if (sattoActive()) sattoTakeDamage(rig.dolly.position, 1e9, ULT.bossDmg); // 폭격은 전장 전체
-    clearDangerShots();
     state.ultCasting = false;
     state.emit('ultCastEnd');
-  }, ULT.castMs);
+  }, ULT.castMs + SGJ.flightMs);
 }
 
 // ── 아이템 ──

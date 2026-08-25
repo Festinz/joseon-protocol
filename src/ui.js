@@ -75,7 +75,9 @@ export function initUI({ onRunStart, onRestart }) {
   state.on('itemsChanged', renderItems);
   state.on('ultChanged', renderUlt);
   state.on('fieldTypeChanged', renderUlt);
-  state.on('ultLockedTry', () => showRecap('실내에서는 폭격 지원 불가 — 개활지 전용'));
+  state.on('ultLockedTry', () => showRecap('실내에서는 신기전 지원 불가 — 개활지 전용'));
+  state.on('singijeonVolley', ({ rockets, targets }) =>
+    showRecap(targets ? `신기전 ${rockets}발 — 표적 ${targets}` : `신기전 ${rockets}발 — 표적 없음`));
   state.on('ultCastStart', () => { $('flash').style.opacity = 0.25; setTimeout(() => $('flash').style.opacity = 0, 200); });
   state.on('ultStrike', () => { $('flash').style.opacity = 0.7; setTimeout(() => $('flash').style.opacity = 0, 110); });
   state.on('scoreChanged', renderScore);
