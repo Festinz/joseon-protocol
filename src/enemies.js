@@ -61,7 +61,7 @@ function acquire(type) {
     const group = buildSoldier(type);
     a = { type, group, alive: false, hp: 0, headOnly: type === 'shield',
           st: 'SPAWN', stT: 0, homeY: 0, seed: Math.random() * 10,
-          nextFire: 0, aura: makeAura(group) };
+          nextFire: 0, attackUntil: 0, aura: makeAura(group) };
     a.onHit = (part, dmg, info) => onActorHit(a, part, dmg, info);
     group.traverse(o => { if (o.name === 'hitBody' || o.name === 'hitHead') registerHittable(o, a); });
   } else {
@@ -112,7 +112,10 @@ function playA(a, names, loop = true) {
     const key = Object.keys(a.clips).find(k => k.includes(n));
     if (!key) continue;
     const next = a.mixer.clipAction(a.clips[key]);
-    if (a.curAction === next) return true;
+    if (a.curAction === next) {
+      if (!loop) next.reset().play(); // 원샷(attack 등)은 재트리거 — clampWhenFinished 로 멈춰 있던 액션 재생
+      return true;
+    }
     next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
     next.clampWhenFinished = !loop;
     next.reset().fadeIn(0.18).play();
@@ -121,6 +124,15 @@ function playA(a, names, loop = true) {
     return true;
   }
   return false;
+}
+
+// ── 사격 모션/연출탄 로컬 상수 (밸런스 config 아님 — hp/score/dmg 무관) ──
+const DECOY_MIN_MS = 1800, DECOY_VAR_MS = 1400;  // grunt/shield 연출탄 간격 1.8~3.2s
+const ATTACK_ANIM_HOLD_MS = 750;                  // attack 원샷 유지 후 로코모션 클립 복귀 (0.6~0.9s)
+
+// 발사 순간 attack 클립 1회 재생. 성공 시에만 attackUntil 설정 → 절차 폴백은 그대로 동작
+function playAttackOnce(a, t) {
+  if (playA(a, ['attack', 'shoot', 'fire', 'punch'], false)) a.attackUntil = t + ATTACK_ANIM_HOLD_MS;
 }
 
 function doSpawn({ entry, node }) {
@@ -147,7 +159,8 @@ function doSpawn({ entry, node }) {
     a.flightMs = entry.flightMs || (entry.firstUnfavRelief && shouldRelief() ? DANGER.tutorialFlightMs : DANGER.flightMs);
   }
   if (entry.type === 'thrower') a.nextFire = now() + 3000;
-  if (entry.type === 'grunt') a.nextFire = now() + 1500 + Math.random() * 2000;
+  if (entry.type === 'grunt' || entry.type === 'shield') a.nextFire = now() + 1500 + Math.random() * 2000;
+  a.attackUntil = 0; // 풀 재사용 시 잔여 attack 홀드 제거
   scene.add(a.group);
   actors.push(a);
   state.emit('enemySpawned', a);
@@ -238,22 +251,23 @@ export function updateEnemies(dt) {
         // ── 보행: 인지 후 교전 거리까지 전진 (걷기 모션 + 실제 이동) ──
         const pd = a.group.position.distanceTo(rig.dolly.position);
         const engage = a.type === 'shield' ? 2.2 : a.type === 'marksman' ? 11 : 8;
+        const attacking = t < a.attackUntil; // attack 원샷 재생 중 — 이동 클립으로 덮지 않음
         if (pd > engage) {
           const spd = a.type === 'shield' ? 0.9 : 1.6;
           a.group.position.addScaledVector(_v.subVectors(rig.dolly.position, a.group.position).setY(0).normalize(), spd * dt * 0.001);
-          if (!playA(a, ['walk', 'run', 'jog'])) { /* 폴백: sine 보행 바운스 */ a.group.position.y = a.homeY + Math.abs(Math.sin(t * 0.008 + a.seed)) * 0.07; }
+          if (!attacking && !playA(a, ['walk', 'run', 'jog'])) { /* 폴백: sine 보행 바운스 */ a.group.position.y = a.homeY + Math.abs(Math.sin(t * 0.008 + a.seed)) * 0.07; }
         } else {
-          playA(a, ['idle', 'stand']);
+          if (!attacking) playA(a, ['idle', 'stand']);
           // 살짝 좌우 스트레이프 (총격전 생동감)
           a.group.position.x += Math.sin(t * 0.0012 + a.seed * 7) * dt * 0.0003;
         }
         if (a.type === 'shield' && pd < 2.2) { damagePlayer(PLAYER.dangerHit, '팽배수 근접 공격'); a.st = 'RECOIL'; a.stT = t; }
         a.group.lookAt(rig.dolly.position.x, a.homeY, rig.dolly.position.z);
         // 사격 스케줄
-        if (a.type === 'grunt' && t >= a.nextFire) {
-          a.nextFire = t + 2500 + Math.random() * 2500;
-          playA(a, ['attack', 'shoot', 'fire', 'punch'], false);
-          setTimeout(() => { if (a.alive) playA(a, ['idle', 'stand']); }, 900);
+        if ((a.type === 'grunt' || a.type === 'shield') && t >= a.nextFire) {
+          a.nextFire = t + DECOY_MIN_MS + Math.random() * DECOY_VAR_MS;
+          // 몸통 정렬은 바로 위 프레임별 lookAt 이 보장
+          playAttackOnce(a, t);
           state.emit('decoyShot', a); // 연출탄: 머즐 플래시+소리만, 데미지 0
         }
         if (a.type === 'marksman' && t >= a.nextFire && t >= state.smokeUntil) {
@@ -271,6 +285,8 @@ export function updateEnemies(dt) {
         if (el >= DANGER.telegraphMs) {
           a.st = 'IDLE'; a.stT = t; a.aura.visible = false;
           a.nextFire = t + a.aimInterval;
+          a.group.lookAt(rig.dolly.position.x, a.homeY, rig.dolly.position.z); // 발사 시 즉시 정렬
+          playAttackOnce(a, t); // 발사 순간 attack 재트리거 (윈드업 클립은 clamp 상태 → reset 재생)
           const from = a.group.position.clone().add(new THREE.Vector3(0, 1.5, 0));
           spawnDangerShot(from, { flightMs: a.flightMs });
           a.flightMs = a.entry.flightMs || DANGER.flightMs; // 완화는 첫 발만

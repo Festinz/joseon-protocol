@@ -24,8 +24,12 @@ function makeSoftCircle() {
 }
 
 let muzzleLight = null, muzzleLightT = -1;
+let boomLight = null, boomLightT = -1; // 수류탄 폭발 플래시 (별도 1개 풀, 0.12s 감쇠)
 const gunTracers = []; // 적 연출탄 스트릭 풀
 const rings = [];      // 쇼크웨이브
+const scorches = [];   // 바닥 그을음 데칼 풀 (동시 최대 6, 8s 페이드)
+const SCORCH_MAX = 6, SCORCH_MS = 8000;
+let scorchGeo = null;  // 공유 CircleGeometry 1개
 
 export function initVfx(sc) {
   scene = sc;
@@ -33,6 +37,11 @@ export function initVfx(sc) {
   muzzleLight = new THREE.PointLight(0xffb35c, 0, 6, 2);
   muzzleLight.layers.enable(1);
   scene.add(muzzleLight);
+  // 폭발 플래시 라이트 (muzzleLight 패턴 재사용 — 별도 1개, 주황, 0.12s 감쇠)
+  boomLight = new THREE.PointLight(0xff8c3a, 0, 16, 2);
+  boomLight.layers.enable(1);
+  scene.add(boomLight);
+  scorchGeo = new THREE.CircleGeometry(1, 24);
   geometry = new THREE.BufferGeometry();
   pPos = new Float32Array(MAXP * 3); pVel = new Float32Array(MAXP * 3);
   pLife = new Float32Array(MAXP); pMaxLife = new Float32Array(MAXP); pSize = new Float32Array(MAXP);
@@ -99,6 +108,7 @@ export function initVfx(sc) {
 function removeTracer(s) { const m = tracers.get(s); if (m) { scene.remove(m); tracers.delete(s); } }
 
 let pi = 0;
+const _col = new THREE.Color(); // 재사용 — 프레임당 할당 금지
 function burstOne(pos, color, speed, life, size) {
   const i = pi = (pi + 1) % MAXP;
   pPos[i * 3] = pos.x; pPos[i * 3 + 1] = pos.y; pPos[i * 3 + 2] = pos.z;
@@ -106,8 +116,8 @@ function burstOne(pos, color, speed, life, size) {
   pVel[i * 3 + 1] = Math.random() * speed * 0.8 + 0.3;
   pVel[i * 3 + 2] = (Math.random() - 0.5) * speed;
   pLife[i] = pMaxLife[i] = life; pSize[i] = size;
-  const c = new THREE.Color(color);
-  geometry.attributes.color.setXYZ(i, c.r, c.g, c.b);
+  _col.set(color);
+  geometry.attributes.color.setXYZ(i, _col.r, _col.g, _col.b);
 }
 export function burst(pos, n, color, speed, life, size) {
   for (let k = 0; k < n; k++) burstOne(pos, color, speed, life + Math.random() * life * 0.4, size);
@@ -120,6 +130,43 @@ export function shockwave(pos, R = 4) {
     new THREE.MeshBasicMaterial({ color: 0xffe6c0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
   m.rotation.x = -Math.PI / 2; m.position.copy(pos); m.position.y += 0.06;
   scene.add(m); rings.push({ m, t: 0, R });
+}
+
+// ── 수류탄 전용 헬퍼 (throwables.js 에서 호출) ──────────────────────
+// 비행 연기 트레일: 작은 회색 퍼프 1개 (느린 드리프트)
+export function trailPuff(pos) { burstOne(pos, 0x9aa0a8, 0.35, 700, 0.3); }
+// 도화선 스파크: 주황 점 1개 (짧은 수명)
+export function fuseSpark(pos) { burstOne(pos, 0xffa030, 1.1, 170, 0.13); }
+// 폭발 라이트 플래시 — 재사용 라이트 1개, 0.12s 감쇠
+export function explosionFlash(pos) {
+  boomLight.position.set(pos.x, pos.y + 0.6, pos.z);
+  boomLightT = 0;
+}
+// 바닥 그을음 데칼 — 공유 지오메트리, 풀 최대 6, 8초 페이드아웃
+export function scorch(pos, R = 2.4) {
+  let s = null;
+  for (const x of scorches) if (x.t >= SCORCH_MS) { s = x; break; } // 만료된 슬롯 우선
+  if (!s) {
+    if (scorches.length < SCORCH_MAX) {
+      const mesh = new THREE.Mesh(scorchGeo, new THREE.MeshBasicMaterial({
+        color: 0x101014, transparent: true, opacity: 0.55, depthWrite: false, fog: false,
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2,
+      }));
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.renderOrder = 1;
+      scene.add(mesh);
+      s = { mesh, t: SCORCH_MS };
+      scorches.push(s);
+    } else {
+      for (const x of scorches) if (!s || x.t > s.t) s = x; // 가장 오래된 것 재사용
+    }
+  }
+  s.t = 0;
+  s.mesh.visible = true;
+  s.mesh.position.set(pos.x, 0.02, pos.z);
+  s.mesh.rotation.z = Math.random() * Math.PI * 2;
+  s.mesh.scale.setScalar(R * (0.85 + Math.random() * 0.35));
+  s.mesh.material.opacity = 0.55;
 }
 
 // 적 연출탄 트레이서 — 카메라 근처를 스치고 지나가는 빗나감 (풀 8)
@@ -169,6 +216,19 @@ export function updateVfx(dt) {
     muzzleLightT += dt;
     muzzleLight.intensity = muzzleLightT < 90 ? 14 * (1 - muzzleLightT / 90) : 0;
     if (muzzleLightT > 90) muzzleLightT = -1;
+  }
+  // 폭발 플래시 (120ms 감쇠)
+  if (boomLightT >= 0) {
+    boomLightT += dt;
+    boomLight.intensity = boomLightT < 120 ? 30 * (1 - boomLightT / 120) : 0;
+    if (boomLightT > 120) boomLightT = -1;
+  }
+  // 바닥 그을음 페이드 (8s)
+  for (const s of scorches) {
+    if (s.t >= SCORCH_MS) continue;
+    s.t += dt;
+    if (s.t >= SCORCH_MS) { s.mesh.visible = false; s.mesh.material.opacity = 0; }
+    else s.mesh.material.opacity = 0.55 * (1 - s.t / SCORCH_MS);
   }
   // 쇼크웨이브
   for (let i = rings.length - 1; i >= 0; i--) {
