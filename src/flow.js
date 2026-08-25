@@ -9,6 +9,7 @@ import { openGateVisual } from './assets.js';
 import { spawnWave, aliveCount, clearAll, getActors, resetReliefFlag } from './enemies.js';
 import { clearDangerShots, damagePlayer } from './combat.js';
 import { refillAmmo } from './weapons.js';
+import { resetWheelVec } from './input.js';
 import { initBossFight, updateBoss, bossActive, bossTakeUltDamage } from './boss.js';
 import { spawnMulgit, updateMulgit, mulgitActive, resetMulgit, mulgitTakeDamage } from './mulgit.js';
 
@@ -26,11 +27,27 @@ export function initFlow() {
   state.on('playerDead', () => { deadAt = now(); });
   state.on('forceCoverRequest', () => {});
   state.on('runComplete', () => state.emit('showEnding'));
-  // 무기 휠 (Space 홀드 = 일시정지 + 휠 UI)
+  // 무기 휠 (Space 홀드 = 일시정지 + 휠 UI, 마우스 방향으로 선택 → 놓으면 교체)
   state.on('wheelHold', (held) => {
     if (state.phase !== 'play' || state.player.state === 'DEAD') return;
     state.wheelOpen = held; state.paused = held;
+    if (held) { resetWheelVec(); state._wheelPick = state.currentWeapon; }
     state.emit('wheelShow', held);
+    if (!held && state._wheelPick && state._wheelPick !== state.currentWeapon) {
+      state.emit('switchWeapon', state._wheelPick);
+    }
+  });
+  // 투척류 휠 (G 홀드 = 세로 2등분 선택)
+  state.on('throwWheel', (held) => {
+    if (state.phase !== 'play' || state.player.state === 'DEAD') return;
+    state.twheelOpen = held; state.paused = held;
+    if (held) { resetWheelVec(); state._twPick = state.selectedThrowable; }
+    state.emit('twheelShow', held);
+    if (!held && state._twPick && state._twPick !== state.selectedThrowable) {
+      state.selectedThrowable = state._twPick;
+      state.emit('itemsChanged');
+      state.emit('recapLine', `투척물 — ${state.selectedThrowable === 'grenade' ? '수류탄' : '연막탄'} (F 투척)`);
+    }
   });
   // 멀기트 격파 → Z4 클리어 처리 (보스룸 문 개방)
   state.on('mulgitDefeated', () => {

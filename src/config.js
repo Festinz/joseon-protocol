@@ -34,6 +34,8 @@ export const WEAPONS = {
   rifle:   { key: 'rifle',   name: '영천 장총', mag: 6, reserve: 60, dmg: 10, weakMult: 2, fireMs: 330, reloadMs: 600,  spread: 12, kick: 0.045 },
   carbine: { key: 'carbine', name: '집경 카빈', mag: 8, reserve: 48, dmg: 6,  weakMult: 2, fireMs: 180, reloadMs: 800,  spread: 24, kick: 0.028 },
   ritual:  { key: 'ritual',  name: '천마도',    mag: 1, reserve: 3,  dmg: 60, weakMult: 2, fireMs: 800, reloadMs: 1600, spread: 8,  kick: 0.10 },
+  hwando:  { key: 'hwando',  name: '환도',      mag: 1, reserve: 0,  dmg: 34, weakMult: 2, fireMs: 420, reloadMs: 0,    spread: 0,  kick: 0.06,
+             melee: true, range: 2.6, arcDeg: 100 },   // 근접 — 탄약 없음, 숏앤슬래시
 };
 export const AUTO_RELOAD = { coveredDelayMs: 400 }; // 엄폐 400ms 후 자동 재장전 시작
 

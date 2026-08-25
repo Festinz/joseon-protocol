@@ -8,6 +8,7 @@ const SPRITES = {
   rifle: 'assets/vm/rifle.png',
   carbine: 'assets/vm/rifle.png',     // 전용 아트 없음 — 소총 공유
   ritual: 'assets/vm/rifle.png',
+  hwando: 'assets/vm/dagger.png',     // 근접 — 단도/환도 아트
   dagger: 'assets/vm/dagger.png',
   grenade: 'assets/vm/grenade.png',
   mapae: 'assets/vm/mapae.png',
@@ -35,6 +36,7 @@ export function initVmSprite() {
     override = { sprite: cur(), until: now() + ms, anim: 'reload', dur: ms };
   });
   state.on('assassinateDone', () => { override = { sprite: SPRITES.dagger, until: now() + 700, anim: 'stab' }; });
+  state.on('meleeSwing', () => { override = { sprite: SPRITES.dagger, until: now() + 380, anim: 'stab', dur: 380 }; });
   state.on('grenadeThrown', () => { override = { sprite: SPRITES.grenade, until: now() + 650, anim: 'throw' }; });
   state.on('ultCastStart', () => { override = { sprite: SPRITES.mapae, until: now() + 1700, anim: 'raise' }; });
   refresh();

@@ -74,6 +74,9 @@ export function tryFire() {
   if (state.phase !== 'play' || state.paused) return;
   if (!canFire()) return;
 
+  const wcfg = WEAPONS[state.currentWeapon];
+  if (wcfg.melee) return meleeStrike(wcfg);   // 환도: 탄약 미소모 근접 베기
+
   consumeShot();
   state.shotsFired += 1;
   const cfg = WEAPONS[state.currentWeapon];
@@ -88,23 +91,68 @@ export function tryFire() {
   const hits = raycaster.intersectObjects(targets, false);
 
   let victim = null, part = null, point = null;
-  if (hits.length) { victim = hits[0].object.userData.actor; part = hits[0].object.name; point = hits[0].point; }
-  else {
+  if (hits.length) {
+    victim = hits[0].object.userData.actor; part = hits[0].object.name; point = hits[0].point;
+    // 머리 승격: 같은 액터의 hitHead 가 몸통 박스 바로 뒤에 겹쳐 있으면 헤드샷으로 처리
+    // (머리 프록시가 몸통 프록시에 가려져 헤드샷이 몸샷으로 먹히던 버그)
+    if (part === 'hitBody') {
+      for (const h of hits) {
+        if (h.object.userData.actor !== victim) break;
+        if (h.object.name === 'hitHead' && h.distance - hits[0].distance < 0.55) {
+          part = 'hitHead'; point = h.point; break;
+        }
+      }
+    }
+  } else {
     // 화면공간 관용 스냅 (몸통만 — 약점/머리 전용 적은 스냅 무효)
     const best = snapAssist(ndc);
     if (best) { victim = best.actor; part = 'hitBody'; point = best.pos; }
   }
 
-  if (victim && !(victim.headOnly && part === 'hitBody')) {
+  if (victim) {
     state.shotsHit += 1;
     bumpCombo();
+    const blocked = victim.headOnly && part === 'hitBody';   // 방패: 15% 관통 (enemies 에서 감쇠)
     const weak = part !== 'hitBody';
     const dmg = cfg.dmg * (weak ? cfg.weakMult : 1) * state.comboMult;
     victim.onHit(part, dmg, { weak, weapon: state.currentWeapon });
     state.emit('shotHit', { point, weak, part });
+    if (blocked) state.emit('shotBlockedByShield', { point });
   } else {
-    if (victim && victim.headOnly) state.emit('shotBlockedByShield', { point });
     state.combo = 0; state.comboMult = 1; state.emit('comboChanged');
+  }
+}
+
+// ── 환도 근접 베기: 전방 부채꼴 내 최근접 적 1체 ──
+const _fw = new THREE.Vector3(), _to = new THREE.Vector3();
+let lastMelee = 0;
+function meleeStrike(cfg) {
+  const t = now();
+  if (t - lastMelee < cfg.fireMs) return;
+  lastMelee = t;
+  const w = state.weapons.hwando; if (w) w.lastFire = t;   // canFire 쿨다운 공유
+  state.emit('meleeSwing');
+  rig.camera.getWorldDirection(_fw); _fw.y = 0; _fw.normalize();
+  const pp = rig.dolly.position;
+  let best = null, bestD = cfg.range;
+  const seen = new Set();
+  for (const h of hittables) {
+    const a = h.userData.actor;
+    if (!a?.alive || seen.has(a) || a.isTurret || a.isCore || a.isBossBody) continue;
+    seen.add(a);
+    if (!a.group) continue;
+    _to.set(a.group.position.x - pp.x, 0, a.group.position.z - pp.z);
+    const d = _to.length();
+    if (d > cfg.range) continue;
+    if (_to.normalize().dot(_fw) < Math.cos(cfg.arcDeg * Math.PI / 360)) continue;
+    if (d < bestD) { bestD = d; best = a; }
+  }
+  if (best) {
+    state.shotsFired += 1; state.shotsHit += 1; bumpCombo();
+    const dmg = cfg.dmg * state.comboMult;
+    best.onHit('hitBody', dmg, { weapon: 'hwando', melee: true });
+    _to.copy(best.group.position); _to.y = 1.1;
+    state.emit('shotHit', { point: _to.clone(), weak: false, part: 'hitBody' });
   }
 }
 

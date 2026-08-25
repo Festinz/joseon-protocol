@@ -172,7 +172,7 @@ function shouldRelief() { return false; }
 
 function onActorHit(a, part, dmg, info) {
   if (!a.alive) return;
-  if (a.headOnly && part !== 'hitHead') dmg = Math.max(1, dmg * 0.15); // 팽배수: 방패 관통 15% — 머리가 정답
+  if (a.headOnly && part !== 'hitHead') dmg = Math.max(1, dmg * (info?.melee ? 0.6 : 0.15)); // 팽배수: 총알 15%/환도 60% 관통 — 머리가 정답
   a.hp -= dmg;
   if (!info?.silent) a.aware = true;            // 암살은 무음 — 그 외 피격은 인지
   creditHit();

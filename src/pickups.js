@@ -6,7 +6,7 @@ import { state, now } from './state.js';
 import { WEAPONS, ITEMS, PLAYER } from './config.js';
 import { rig } from './rail.js';
 
-const DROP_CHANCE = 0.35;
+const DROP_CHANCE = 0.5;   // 플레이테스트 피드백 — 드랍 체감 상향
 const LIFE_MS = 25000;          // 수명
 const BLINK_MS = 4000;          // 마지막 4초 깜빡임
 const PICK_DIST = 1.35;         // 획득 수평거리
@@ -71,8 +71,8 @@ function makeGroup(kind) {
 
 // ── 드랍 ─────────────────────────────────────────────────────────────
 function rollKind() {
-  const r = Math.random();                 // 탄약 55% / 회복 35% / 수류탄 10%
-  return r < 0.55 ? 'ammo' : r < 0.90 ? 'heal' : 'grenade';
+  const r = Math.random();                 // 탄약 62% / 회복 30% / 수류탄 8%
+  return r < 0.62 ? 'ammo' : r < 0.92 ? 'heal' : 'grenade';
 }
 
 function spawnAt(x, z, kind) {
@@ -102,9 +102,10 @@ function bossReward(kinds) {
 // ── 획득 효과 ────────────────────────────────────────────────────────
 function applyPickup(kind) {
   if (kind === 'ammo') {
-    const w = state.weapons[state.currentWeapon];
-    const cfg = WEAPONS[state.currentWeapon];
-    w.reserve = Math.min(cfg.reserve, w.reserve + Math.ceil(cfg.reserve * 0.35));
+    const key = WEAPONS[state.currentWeapon]?.melee ? 'rifle' : state.currentWeapon; // 환도 들고 있으면 소총 탄 보급
+    const w = state.weapons[key];
+    const cfg = WEAPONS[key];
+    w.reserve = Math.min(cfg.reserve, w.reserve + Math.ceil(cfg.reserve * 0.45));
     state.emit('ammoChanged');
     state.emit('recapLine', '+ 탄약 보급');
   } else if (kind === 'heal') {

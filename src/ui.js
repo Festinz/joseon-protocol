@@ -4,6 +4,7 @@
 import { WEAPONS, SCORE, PLAYER, RAIL } from './config.js';
 import { state, setHand, now } from './state.js';
 import { exposedFraction, isFavorable } from './cover.js';
+import { getWheelVec } from './input.js';
 import { applyShoulder } from './rail.js';
 import { unlockAudio } from './audio.js';
 
@@ -114,6 +115,16 @@ export function initUI({ onRunStart, onRestart }) {
     wheelFlashTimer = setTimeout(() => { w.classList.add('hidden'); w.classList.remove('flash'); }, 700);
   });
   state.on('assassinPrompt', (on) => $('assassin').classList.toggle('hidden', !on));
+  state.on('twheelShow', (held) => {   // 투척류 휠 (G 홀드)
+    $('twheel').classList.toggle('hidden', !held);
+    if (held) {
+      $('twg').textContent = '×' + state.items.grenade;
+      $('tws').textContent = '×' + state.items.smoke;
+      $('tw-grenade').classList.toggle('sel', state.selectedThrowable === 'grenade');
+      $('tw-smoke').classList.toggle('sel', state.selectedThrowable === 'smoke');
+    }
+  });
+  state.on('meleeSwing', () => {});   // (오디오/뷰모델이 구독 — UI 는 없음)
   state.on('ultCastStart', () => { // 비거 융단폭격 컷씬
     const c = $('cutscene'); c.classList.remove('hidden');
     const img = c.querySelector('img'); img.style.animation = 'none'; void img.offsetWidth; img.style.animation = '';
@@ -147,21 +158,55 @@ function renderHp() {
 function renderAmmo() {
   const w = state.weapons[state.currentWeapon]; const cfg = WEAPONS[state.currentWeapon];
   $('wname').textContent = cfg.name;
-  $('magval').textContent = w.mag;                          // PPTX {0}/{1} 표기 — 주머니 좌/우
-  $('resval').textContent = w.reserve;
-  $('magchip').classList.toggle('empty', w.mag === 0);
-  $('reloadmsg').textContent = w.reloading ? '재장전…' : (w.mag === 0 && w.reserve === 0 ? '탄약 소진' : (w.mag === 0 ? '재장전 필요 — 엄폐하라' : ''));
+  if (cfg.melee) {                                          // 환도: 탄약 없음
+    $('magval').textContent = '—'; $('resval').textContent = '—';
+    $('magchip').classList.remove('empty');
+    $('reloadmsg').textContent = '';
+  } else {
+    $('magval').textContent = w.mag;                        // PPTX {0}/{1} 표기 — 주머니 좌/우
+    $('resval').textContent = w.reserve;
+    $('magchip').classList.toggle('empty', w.mag === 0);
+    $('reloadmsg').textContent = w.reloading ? '재장전…' : (w.mag === 0 && w.reserve === 0 ? '탄약 소진' : (w.mag === 0 ? '재장전 필요 — 엄폐하라' : ''));
+  }
   renderSlots();
-  renderWheelHl();
+  renderWheelHl(state.currentWeapon);
 }
-const WHEEL_ANGLE = { rifle: 0, carbine: 180, ritual: 240 }; // 휠 아트 섹터: 승자총통/신기전/비격진천뢰
-function renderWheelHl() {
-  $('wheelhl').style.setProperty('--a', (WHEEL_ANGLE[state.currentWeapon] || 0) + 'deg');
-  $('wheelname').textContent = `${WEAPONS[state.currentWeapon].name} — Space 탭 전환 · 홀드 휠 · 1/2/3 선택`;
+const WHEEL_ANGLE = { rifle: 0, hwando: 60, carbine: 180, ritual: 240 }; // 휠 아트 섹터: 승자총통/환도/신기전/비격진천뢰
+function renderWheelHl(key) {
+  const k = key || state._wheelPick || state.currentWeapon;
+  $('wheelhl').style.setProperty('--a', (WHEEL_ANGLE[k] || 0) + 'deg');
+  $('wheelname').textContent = `${WEAPONS[k].name} — 마우스로 선택, Space 놓으면 교체 · 1/2/3/4 직접 선택`;
+}
+// 휠 열림 중 매 프레임: 마우스 방향 → 가장 가까운 해금 무기 섹터
+function updateWheelPick() {
+  const v = getWheelVec();
+  const len = Math.hypot(v.x, v.y);
+  if (len < 26) return;
+  let ang = Math.atan2(v.x, -v.y) * 180 / Math.PI;   // 위 = 0°, 시계방향
+  if (ang < 0) ang += 360;
+  let best = null, bestD = 361;
+  for (const k of state.unlockedWeapons) {
+    if (!(k in WHEEL_ANGLE)) continue;
+    let d = Math.abs(ang - WHEEL_ANGLE[k]); if (d > 180) d = 360 - d;
+    if (d < bestD) { bestD = d; best = k; }
+  }
+  if (best && best !== state._wheelPick) { state._wheelPick = best; renderWheelHl(best); }
+}
+// 투척류 휠: 마우스 상/하 → 수류탄/연막
+function updateTwheelPick() {
+  const v = getWheelVec();
+  if (Math.abs(v.y) < 16) return;
+  const pick = v.y < 0 ? 'grenade' : 'smoke';
+  if (pick !== state._twPick) {
+    state._twPick = pick;
+    $('tw-grenade').classList.toggle('sel', pick === 'grenade');
+    $('tw-smoke').classList.toggle('sel', pick === 'smoke');
+  }
 }
 function renderSlots() {
   $('ws2').style.opacity = state.unlockedWeapons.includes('carbine') ? 1 : 0.3;
   $('ws3').style.opacity = state.unlockedWeapons.includes('ritual') ? 1 : 0.3;
+  const w4 = $('ws4'); if (w4) w4.style.opacity = state.unlockedWeapons.includes('hwando') ? 1 : 0.3;
 }
 function renderItems() {
   $('it-tonic').innerHTML = `탕약 <b>×${state.items.tonic}</b> <span style="opacity:.6">T</span>`;
@@ -209,7 +254,7 @@ function renderPeekBadge() { // (자유이동판) 견착·리닝 배지 — upda
 function showBanner(text) {
   const b = $('banner'); b.textContent = text; b.classList.add('show');
   clearTimeout(bannerTimer);
-  bannerTimer = setTimeout(() => b.classList.remove('show'), 1600);
+  bannerTimer = setTimeout(() => b.classList.remove('show'), 2400);
 }
 function showRecap(text) {
   const r = $('recap'); r.textContent = text;
@@ -220,6 +265,8 @@ function showRecap(text) {
 // 매 프레임: 리닝 미터 + 견착 배지 + 위험 비네트
 export function updateUI() {
   document.querySelector('#exposure i').style.height = Math.round(exposedFraction() * 100) + '%';
+  if (state.wheelOpen) updateWheelPick();
+  if (state.twheelOpen) updateTwheelPick();
   if (state.phase === 'play') renderPeekBadge();
   const danger = now() < dangerUntil;
   $('vignette').classList.toggle('warn', danger);

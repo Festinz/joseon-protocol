@@ -2,6 +2,7 @@
 // 경고음은 Combat gate 요건 — 절대 컷 불가.
 
 import { state } from './state.js';
+import { WEAPONS } from './config.js';
 
 let ctx = null, master, sfxGain, bgmGain, comp;
 let droneNodes = null;
@@ -20,7 +21,13 @@ export function initAudio() {
   state.on('dangerTelegraph', () => sfxWarn());
   state.on('dangerLaunched', () => sfxWhoosh());
   state.on('playerHit', () => sfxPain());
-  state.on('reloadStart', () => sfxBolt());
+  state.on('reloadStart', (key) => {   // 3단 볼트 액션: 철컥 - 삽탄 - 철컥
+    sfxBolt();
+    const ms = (WEAPONS[key || state.currentWeapon]?.reloadMs || 600) + 250;
+    setTimeout(() => sfxTick(), ms * 0.5);
+    setTimeout(() => sfxBolt(), ms * 0.88);
+  });
+  state.on('meleeSwing', () => sfxWhoosh());
   state.on('fireBlocked', () => sfxTick());
   state.on('ultLockedTry', () => sfxStatic());
   state.on('ultStrike', () => sfxBoom());

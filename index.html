@@ -128,6 +128,12 @@
   #wheel.flash .wheelhint{font-size:13px}
   .wheelhint{margin-top:14px; font-size:15px; font-weight:700; letter-spacing:.1em; color:var(--ink); text-shadow:0 1px 6px #000}
 
+  /* ── 투척류 휠 (G 홀드 — 세로 2등분) ── */
+  #twheel{inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; z-index:70; background:rgba(6,8,20,.55)}
+  .twchip{min-width:220px; text-align:center; background:var(--panel); border:2px solid var(--line); border-radius:12px; padding:14px 26px; font-size:19px; font-weight:800; letter-spacing:.08em; transition:border-color .12s, transform .12s}
+  .twchip.sel{border-color:#ffd24a; color:#ffd24a; transform:scale(1.07); box-shadow:0 0 18px rgba(255,210,74,.35)}
+  .twhint{font-size:13px; color:#8f94b5; margin-top:6px}
+
   /* ── ADS 조준경 (스팀펑크 모노큘러) ── */
   #scope{position:fixed; inset:0; z-index:9; pointer-events:none; opacity:0}
   #scope svg{width:100%; height:100%; display:block}
@@ -198,6 +204,13 @@
     <div id="wheelhl"></div>
   </div>
   <div class="wheelhint" id="wheelname">Space 탭 — 무기 전환 · 1/2/3 직접 선택</div>
+</div>
+
+<!-- 투척류 휠 (G 홀드) -->
+<div id="twheel" class="hud hidden">
+  <div class="twchip sel" id="tw-grenade">수류탄 <b id="twg">×2</b></div>
+  <div class="twchip" id="tw-smoke">연막탄 <b id="tws">×0</b></div>
+  <div class="twhint">마우스 위/아래 선택 — G 놓으면 확정 · 탭 = 즉시 전환</div>
 </div>
 
 <!-- ADS 조준경 오버레이 (우클릭) -->
@@ -285,7 +298,7 @@
     <div class="ammochip" id="reschip"><span id="resval">60</span></div>
   </div>
   <div id="reloadmsg"></div>
-  <div id="wslots"><b>1</b> 영천 · <span id="ws2">2 집경</span> · <span id="ws3">3 천마도</span> · <b>Space</b> 전환</div>
+  <div id="wslots"><b>1</b> 영천 · <span id="ws2">2 집경</span> · <span id="ws3">3 천마도</span> · <span id="ws4">4 환도</span> · <b>Space</b> 전환/휠</div>
 </div>
 <div id="ult" class="hud">
   <img id="ultimg" src="assets/ui/hud_ult.png" alt="">

@@ -25,12 +25,12 @@ export const state = {
 
   weapons: {},                  // key -> { mag, reserve, reloading, lastFire }
   currentWeapon: 'rifle',
-  unlockedWeapons: ['rifle'],
+  unlockedWeapons: ['rifle', 'hwando'],
 
   items: { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start, grenade: ITEMS.grenade.start },
   smokeUntil: 0,
   selectedThrowable: 'grenade',   // F 로 던질 투척물 (G 전환)
-  ads: false, wheelOpen: false,
+  ads: false, wheelOpen: false, twheelOpen: false,
 
   ult: 0,
   ultCasting: false,
@@ -75,7 +75,7 @@ export function resetRun() {
   state.player.peekT = 0;
   state.player.invulnUntil = 0;
   state.currentWeapon = 'rifle';
-  state.unlockedWeapons = ['rifle'];
+  state.unlockedWeapons = ['rifle', 'hwando'];
   state.items = { tonic: ITEMS.tonic.start, smoke: ITEMS.smoke.start, grenade: ITEMS.grenade.start };
   state.selectedThrowable = 'grenade';
   state.ads = false; state.wheelOpen = false;
