@@ -180,8 +180,13 @@ function tryHeavy() {
 function resolveHeavy(cfg) {
   rig.camera.getWorldDirection(_fw); _fw.y = 0; _fw.normalize();
   const pp = rig.dolly.position;
+  const cosArc = Math.cos(HEAVY.arcDeg * Math.PI / 360);
+
+  // ⚠ 대상을 먼저 확정한다. onActorHit 은 적이 죽는 순간 unregisterActor 로 hittables 를
+  // splice 하는데, 그 배열을 for...of 로 돌면서 때리면 인덱스가 밀려 뒤 대상이 건너뛰어진다.
+  // (3인 부채꼴에서 2명만 맞던 원인 — 앞 둘이 즉사하며 셋째 프록시가 잘려나갔다)
+  const victims = [];
   const seen = new Set();
-  let hits = 0;
   for (const h of hittables) {
     const a = h.userData.actor;
     if (!a?.alive || seen.has(a) || a.isTurret || a.isCore || a.isBossBody) continue;
@@ -190,20 +195,25 @@ function resolveHeavy(cfg) {
     _to.set(a.group.position.x - pp.x, 0, a.group.position.z - pp.z);
     const d = _to.length();
     if (d > HEAVY.range) continue;
-    if (_to.normalize().dot(_fw) < Math.cos(HEAVY.arcDeg * Math.PI / 360)) continue;
-    hits += 1;
+    if (_to.normalize().dot(_fw) < cosArc) continue;
+    victims.push(a);
+  }
+
+  for (const a of victims) {
+    if (!a.alive) continue;                    // 같은 스윙 안에서 이미 처리됐을 수 있다
     state.shotsFired += 1; state.shotsHit += 1; bumpCombo();
     a.onHit('hitBody', cfg.dmg * HEAVY.dmgMult * state.comboMult, { weapon: cfg.key, melee: true, heavy: true });
     _v3.copy(a.group.position); _v3.y = 1.1;
     state.emit('shotHit', { point: _v3.clone(), weak: false, part: 'hitBody' });
   }
-  if (!hits) {   // 헛스윙 — 콤보 리셋까지 감수하는 고위험 공격
+  if (!victims.length) {   // 헛스윙 — 콤보 리셋까지 감수하는 고위험 공격
     state.shotsFired += 1;
     state.combo = 0; state.comboMult = 1; state.emit('comboChanged');
   }
-  state.emit('meleeHeavyImpact', hits);
+  state.emit('meleeHeavyImpact', victims.length);
 }
 state.on('heavyPressed', tryHeavy);
+state.on('playerDead', () => { pendingHeavy = null; });   // 이어하기 후에 유령 스윙이 남지 않도록
 
 function snapAssist(ndc) {
   const px = (ndc.ndcX * 0.5 + 0.5) * innerWidth;
@@ -262,7 +272,12 @@ export function updateCombat(dt) {
 
   // 강공 선딜 완료 → 판정 (setTimeout 대신 루프 기반 — 일시정지에 안전)
   if (pendingHeavy && now() >= pendingHeavy.at) {
-    const ph = pendingHeavy; pendingHeavy = null; resolveHeavy(ph.cfg);
+    const ph = pendingHeavy; pendingHeavy = null;
+    // 선딜 사이에 손에 든 것이 바뀌었거나 죽었으면 스윙은 무효 — 칼을 넣고서 베는 일은 없다
+    const stillValid = state.player.state !== 'DEAD' && !state.throwEquipped &&
+                       !state.ultCasting && WEAPONS[state.currentWeapon]?.melee;
+    if (stillValid) resolveHeavy(ph.cfg);
+    else state.emit('meleeHeavyCancel');
   }
 
   // 명중탄 비행/임팩트
