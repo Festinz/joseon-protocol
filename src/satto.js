@@ -1,4 +1,4 @@
-// mulgit.js — 중간보스 멀기트 (기계 외골격 탐관오리 사또).
+// satto.js — 중간보스 사또 (기계 외골격을 두른 탐관오리).
 // 근접 보스: 추격 → 엇박 내려치기(1.3박 지연) / 원거리 돌진 / 광역 충격파. 전부 이동으로 회피.
 
 import * as THREE from 'three';
@@ -21,13 +21,13 @@ let m = null;   // { group, hp, st, stT, lastCharge, lastWave, dmgAcc, mixer, cl
 let sc = null;
 const _v = new THREE.Vector3(), _p = new THREE.Vector3();
 
-export function initMulgitScene(scene) { sc = scene; }
-export function mulgitActive() { return !!m && m.hp > 0; }
+export function initSattoScene(scene) { sc = scene; }
+export function sattoActive() { return !!m && m.hp > 0; }
 
-export function spawnMulgit(pos = [0, 0, -103]) {
+export function spawnSatto(pos = [0, 0, -103]) {
   if (m) despawn();
   const group = new THREE.Group();
-  // 절차 폴백: 병사 ×1.75 진홍 틴트 — GLB(assets/models/mulgit.glb) 로드 시 교체
+  // 절차 폴백: 병사 ×1.75 진홍 틴트 — GLB(assets/models/satto.glb) 로드 시 교체
   const proc = buildSoldier('grunt');
   proc.scale.setScalar(1.75);
   proc.traverse(o => {
@@ -37,7 +37,7 @@ export function spawnMulgit(pos = [0, 0, -103]) {
     }
   });
   group.add(proc);
-  new GLTFLoader().load('assets/models/mulgit.glb?v=4', (g) => {
+  new GLTFLoader().load('assets/models/satto.glb?v=5', (g) => {
     proc.visible = false;
     g.scene.traverse(o => { if (o.isMesh && o.material) { o.material.emissive = new THREE.Color(0xffffff); o.material.emissiveMap = o.material.map || null; o.material.emissiveIntensity = 0.35; } });
     group.add(g.scene);
@@ -62,7 +62,7 @@ export function spawnMulgit(pos = [0, 0, -103]) {
   m = { group, actor, hp: CFG.hp, st: 'CHASE', stT: now(), lastCharge: 0, lastWave: now(), dmgAcc: 0,
         chargeDir: new THREE.Vector3(), mixer: null, clips: null, curClip: null, swung: false };
   state.emit('bannerShow', '중간보스 — 사또, 백성을 쥐어짜던 탐관오리');
-  state.emit('mulgitSpawned');
+  state.emit('sattoSpawned');
   return m;
 }
 
@@ -89,7 +89,7 @@ function takeHit(dmg) {
   if (!m || m.hp <= 0) return;
   m.hp -= dmg; m.dmgAcc += dmg;
   state.emit('bossPartHit');
-  state.emit('mulgitHp', m.hp / CFG.hp);
+  state.emit('sattoHp', m.hp / CFG.hp);
   if (m.dmgAcc >= CFG.staggerEvery && m.st !== 'STAGGER') {
     m.dmgAcc = 0; m.st = 'STAGGER'; m.stT = now();
     playClip(['hit', 'impact', 'damage'], false);
@@ -103,7 +103,7 @@ function die() {
   creditKill({ score: 1500, weak: false });
   burst(m.group.position.clone().add(_v.set(0, 2, 0)), 40, 0x9fd8d4, 4, 900, 0.5);
   kick(2.5);
-  state.emit('mulgitDefeated');
+  state.emit('sattoDefeated');
   state.emit('bannerShow', '사또 격파 — 탐관오리를 처단했다');
   const g = m.group;
   const t0 = now();
@@ -116,13 +116,13 @@ function die() {
 }
 
 function despawn() { if (m?.group?.parent) m.group.parent.remove(m.group); m = null; }
-export function resetMulgit() { despawn(); }
-export function mulgitTakeDamage(pos, radius, dmg) {
+export function resetSatto() { despawn(); }
+export function sattoTakeDamage(pos, radius, dmg) {
   if (!m || m.hp <= 0) return;
   if (m.group.position.distanceTo(pos) < radius) takeHit(dmg);
 }
 
-export function updateMulgit(dt) {
+export function updateSatto(dt) {
   if (!m || m.hp <= 0) return;
   const dts = Math.min(0.05, dt / 1000);
   const t = now();
@@ -159,7 +159,7 @@ export function updateMulgit(dt) {
         burst(m.group.position.clone(), 20, 0xffa050, 3, 400, 0.4);
         shockwave(m.group.position.clone(), CFG.slam.dmgRadius * 0.7);
         kick(1.8);
-        state.emit('mulgitSlam');
+        state.emit('sattoSlam');
         if (dist < CFG.slam.dmgRadius && rig.dolly.position.y < 2) damagePlayer(CFG.slam.dmg, '사또의 철퇴 — 엇박에 당했다');
         m.st = 'RECOVER'; m.stT = t;
       }
@@ -167,7 +167,7 @@ export function updateMulgit(dt) {
     }
     case 'CHARGE_TELE': {   // 돌진 예고 — 몸을 낮추고 노려본다
       playClip(['idle'], true);
-      if (t - m.stT >= CFG.charge.tele) { m.st = 'CHARGE'; m.stT = t; auraOff(); state.emit('mulgitCharge'); playClip(['charge', 'run', 'sprint'], true); }
+      if (t - m.stT >= CFG.charge.tele) { m.st = 'CHARGE'; m.stT = t; auraOff(); state.emit('sattoCharge'); playClip(['charge', 'run', 'sprint'], true); }
       break;
     }
     case 'CHARGE': {
@@ -190,7 +190,7 @@ export function updateMulgit(dt) {
         shockwave(m.group.position.clone(), CFG.wave.radius);
         burst(m.group.position.clone().add(_v.set(0, 0.5, 0)), 30, 0x9fd8d4, 5, 600, 0.45);
         kick(2.2);
-        state.emit('mulgitWave');
+        state.emit('sattoWave');
         if (dist < CFG.wave.radius) damagePlayer(CFG.wave.dmg, '증기 충격파 — 거리를 벌려라');
         m.st = 'RECOVER'; m.stT = t;
       }

@@ -139,7 +139,7 @@ export function initPickups(sceneRef) {
   state.on('enemyKilled', spawnDrop);
   state.on('playerDead', clearPickups);
   state.on('turretDestroyed', () => bossReward(['ammo']));                 // 포탑 격파 = 탄약 보급
-  state.on('mulgitDefeated', () => bossReward(['heal', 'ammo', 'grenade']));
+  state.on('sattoDefeated', () => bossReward(['heal', 'ammo', 'grenade']));
   state.on('bossFinale', () => bossReward(['heal', 'ammo']));             // 해태 최종 페이즈 돌입
 }
 

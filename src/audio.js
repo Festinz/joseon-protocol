@@ -48,10 +48,10 @@ export function initAudio() {
   state.on('grenadeExploded', () => sfxBoom(0.85));
   state.on('grenadeThrown', () => sfxTick());
   state.on('assassinateDone', () => sfxKill());
-  state.on('mulgitSlam', () => sfxBoom(0.7));
-  state.on('mulgitWave', () => sfxBoom(0.9));
-  state.on('mulgitCharge', () => sfxWhoosh());
-  state.on('mulgitDefeated', () => { sfxBoom(); setTimeout(sfxBoom, 500); });
+  state.on('sattoSlam', () => sfxBoom(0.7));
+  state.on('sattoWave', () => sfxBoom(0.9));
+  state.on('sattoCharge', () => sfxWhoosh());
+  state.on('sattoDefeated', () => { sfxBoom(); setTimeout(sfxBoom, 500); });
   state.on('pickupTaken', () => sfxBlip());   // 드랍 아이템 획득
 }
 

@@ -11,7 +11,7 @@ import { clearDangerShots, damagePlayer } from './combat.js';
 import { refillAmmo } from './weapons.js';
 import { resetWheelVec } from './input.js';
 import { initBossFight, updateBoss, bossActive, bossTakeUltDamage } from './boss.js';
-import { spawnMulgit, updateMulgit, mulgitActive, resetMulgit, mulgitTakeDamage } from './mulgit.js';
+import { spawnSatto, updateSatto, sattoActive, resetSatto, sattoTakeDamage } from './satto.js';
 
 const zoneState = ZONES.map(() => ({ started: false, cleared: false, waveIdx: 0, waveActive: false, waveStartAt: 0 }));
 let deadAt = 0;
@@ -19,8 +19,8 @@ let deadAt = 0;
 export function initFlow() {
   state.on('ultPressed', tryUlt);
   state.on('useItem', useItem);
-  // 멀기트 격파 → Z4 클리어 처리 (보스룸 문 개방)
-  state.on('mulgitDefeated', () => {
+  // 사또 격파 → Z4 클리어 처리 (보스룸 문 개방)
+  state.on('sattoDefeated', () => {
     const i = ZONES.findIndex(z => z.id === 'Z4');
     if (i >= 0 && !zoneState[i].cleared) zoneCleared(i);
   });
@@ -97,7 +97,7 @@ export function updateFlow(dt) {
       state.score = state.nodeStartScore + Math.round(Math.max(0, gained) * SCORE.continuePenalty);
       state.player.hp = PLAYER.hp; state.player.state = 'COVERED';
       state.player.invulnUntil = now() + 1500;
-      clearAll(); clearDangerShots(); resetMulgit(); zs.mulgit = false;
+      clearAll(); clearDangerShots(); resetSatto(); zs.satto = false;
       teleport(zone.anchor[0], zone.enterZ + 2.5);
       state.emit('scoreChanged'); state.emit('playerRevived');
       state.emit('bannerShow', '이어하기 — 구간 점수 절반');
@@ -113,14 +113,14 @@ export function updateFlow(dt) {
   if (!zs.started) startZone(i);
   if (zone.boss) { updateBoss(dt); return; }
 
-  if (mulgitActive()) updateMulgit(dt);
+  if (sattoActive()) updateSatto(dt);
 
-  // 웨이브 전멸 → 다음 웨이브 or 존 클리어 (Z4 는 웨이브 후 멀기트 중간보스)
+  // 웨이브 전멸 → 다음 웨이브 or 존 클리어 (Z4 는 웨이브 후 사또 중간보스)
   if (zs.started && !zs.cleared && zs.waveActive && now() - zs.waveStartAt > 1500 && aliveCount() === 0) {
     zs.waveActive = false;
     const next = zs.waveIdx + 1;
     if (next < zone.waves.length) setTimeout(() => startWave(i, next), 900);
-    else if (zone.id === 'Z4' && !zs.mulgit) { zs.mulgit = true; setTimeout(() => spawnMulgit([zone.anchor[0], 0, zone.anchor[2] - 6]), 1200); }
+    else if (zone.id === 'Z4' && !zs.satto) { zs.satto = true; setTimeout(() => spawnSatto([zone.anchor[0], 0, zone.anchor[2] - 6]), 1200); }
     else if (zone.id !== 'Z4') zoneCleared(i);
   }
 }
@@ -136,7 +136,7 @@ function tryUlt() {
   setTimeout(() => {
     for (const a of [...getActors()]) if (a.alive) a.onHit(a.headOnly ? 'hitHead' : 'hitBody', 9999, {});
     if (bossActive()) bossTakeUltDamage(ULT.bossDmg);
-    if (mulgitActive()) mulgitTakeDamage(rig.dolly.position, 1e9, ULT.bossDmg); // 폭격은 전장 전체
+    if (sattoActive()) sattoTakeDamage(rig.dolly.position, 1e9, ULT.bossDmg); // 폭격은 전장 전체
     clearDangerShots();
     state.ultCasting = false;
     state.emit('ultCastEnd');

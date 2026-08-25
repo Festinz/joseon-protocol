@@ -374,7 +374,7 @@ function updateMelee(dt) {
       const ang = Math.abs(((Math.atan2(_toP.x, _toP.z) - faceYaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
       if (dist < MELEE.claw.r && ang < MELEE.claw.arcDeg * Math.PI / 360) damagePlayer(MELEE.claw.dmg, '해태 할퀴기');
       showAura(g.position.x + dirX * 2.2, g.position.z + dirZ * 2.2, 2.6, 260, 0xff7040);
-      // 엇박: 2타→3타 간격이 1.6배 (멀기트와 같은 문법)
+      // 엇박: 2타→3타 간격이 1.6배 (사또와 같은 문법)
       mv.until = t + MELEE.claw.stepMs * (mv.swipeN === 2 ? 1.6 : 1);
       if (mv.swipeN >= MELEE.claw.swipes) { mv.mode = 'RECOVER'; mv.until = t + MELEE.claw.recoverMs; }
     }

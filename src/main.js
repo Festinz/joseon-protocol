@@ -11,7 +11,7 @@ import { initWeapons3D, updateWeapons } from './weapons.js';
 import { updateCombat, registerBlocker, clearDangerShots } from './combat.js';
 import { initEnemies, updateEnemies, clearAll, getActors, spawnMortars } from './enemies.js';
 import { initBossScene, resetBoss } from './boss.js';
-import { initMulgitScene, resetMulgit } from './mulgit.js';
+import { initSattoScene, resetSatto } from './satto.js';
 import { initThrowables, updateThrowables } from './throwables.js';
 import { initPickups, updatePickups, clearPickups } from './pickups.js';
 import { initVmSprite, updateVmSprite } from './vmsprite.js';
@@ -75,7 +75,7 @@ initWeapons3D();
 initVmSprite();
 initEnemies(scene);
 initBossScene(scene);
-initMulgitScene(scene);
+initSattoScene(scene);
 initThrowables(scene);
 initPickups(scene);
 initVfx(scene);
@@ -86,7 +86,7 @@ initDebugOverlay(renderer);
 state.on('bossMortar', (n) => spawnMortars(n));
 state.on('debugKillWave', () => { for (const a of [...getActors()]) if (a.alive) a.onHit(a.headOnly ? 'hitHead' : 'hitBody', 9999, {}); });
 state.on('debugJump', (idx) => {
-  clearAll(); clearDangerShots(); resetBoss(); resetMulgit(); clearPickups();
+  clearAll(); clearDangerShots(); resetBoss(); resetSatto(); clearPickups();
   const z = ZONES[Math.min(idx, ZONES.length - 1)];
   teleport(z.anchor[0], z.enterZ - 2); // 존 경계 안쪽으로
 });

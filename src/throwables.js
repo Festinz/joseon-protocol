@@ -6,7 +6,7 @@ import { state, now } from './state.js';
 import { rig } from './rail.js';
 import { getActors } from './enemies.js';
 import { bossActive, bossTakeUltDamage, bossBodyPos } from './boss.js';
-import { mulgitTakeDamage, mulgitActive } from './mulgit.js';
+import { sattoTakeDamage, sattoActive } from './satto.js';
 import { burst, shockwave, kick, trailPuff, fuseSpark, explosionFlash, scorch } from './vfx.js';
 
 const GRENADE = { dmg: 45, radius: 4.2, bossDmg: 40, fuseMs: 1600, speed: 13, upBoost: 4.5, cooldownMs: 900 };
@@ -117,5 +117,5 @@ function explode(pos) {
     const bp = bossBodyPos();
     if (bp && pos.distanceTo(_v.set(bp.x, pos.y, bp.z)) < 8) bossTakeUltDamage(GRENADE.bossDmg);
   }
-  if (mulgitActive()) mulgitTakeDamage(pos, GRENADE.radius + 1.2, GRENADE.bossDmg);
+  if (sattoActive()) sattoTakeDamage(pos, GRENADE.radius + 1.2, GRENADE.bossDmg);
 }
