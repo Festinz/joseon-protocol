@@ -38,6 +38,7 @@ export function initFlow() {
     setTimeout(() => { if (state.throwEquipped) unequipThrowable(true); }, 700);
   });
   state.on('clearDangerRequest', () => clearDangerShots());
+  state.on('stowThrowable', () => unequipThrowable(false));   // R 재장전 등 — 조용히 집어넣기
   state.on('playerDead', () => { deadAt = now(); });
   state.on('forceCoverRequest', () => {});
   state.on('runComplete', () => state.emit('showEnding'));
