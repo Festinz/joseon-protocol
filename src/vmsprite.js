@@ -8,6 +8,7 @@ const SPRITES = {
   rifle: 'assets/vm/rifle.png',
   carbine: 'assets/vm/shotgun.png',   // 조선 산탄총
   ritual: 'assets/vm/bow.png',        // 흑각궁
+  ritual_drawn: 'assets/vm/bow_drawn.png',   // 흑각궁 — 풀드로우 (당김 스왑)
   hwando: 'assets/vm/dagger.png',     // 근접 — 단도/환도 아트
   dagger: 'assets/vm/dagger.png',
   grenade: 'assets/vm/grenade.png',
@@ -32,7 +33,11 @@ export function initVmSprite() {
 
   state.on('handChosen', (h) => document.body.classList.toggle('hand-L', h === 'L'));
   state.on('weaponChanged', refresh);
-  state.on('bowShot', () => { kickY = 18; kickR = -6; });   // 릴리즈 스냅 — 활이 앞으로 튕긴다
+  state.on('bowShot', () => {
+    kickY = 22; kickR = -8;                                 // 릴리즈 스냅 — 활이 앞으로 튕긴다
+    // 발사 직후 짧은 팔로스루: 활이 앞으로 밀렸다 되돌아온다 (화살이 몸을 떠난 느낌)
+    override = { sprite: SPRITES.ritual, until: now() + 260, anim: 'loose', dur: 260 };
+  });
   state.on('shotFired', () => {
     const k = WEAPONS[state.currentWeapon];
     kickY = 26 * (k?.kick ? k.kick / 0.045 : 1); kickR = 3.5 * (k?.kick ? k.kick / 0.045 : 1);
@@ -68,7 +73,16 @@ export function initVmSprite() {
   refresh();
 }
 
-function cur() { return SPRITES[state.currentWeapon] || SPRITES.rifle; }
+function cur() {
+  // 활: 당김이 35% 를 넘으면 풀드로우 스프라이트로 스왑 — 시위·화살이 실제로 당겨져 보인다
+  if (state.currentWeapon === 'ritual' && state.bowDraw && state._bowDrawStart) {
+    const k = (now() - state._bowDrawStart) / (WEAPONS.ritual.drawMs || 520);
+    if (k > 0.35) return SPRITES.ritual_drawn;
+  }
+  return SPRITES[state.currentWeapon] || SPRITES.rifle;
+}
+// 스왑 순간 깜빡임 방지 — 미리 받아둔다
+for (const k of ['ritual_drawn', 'grenade', 'mapae', 'singijeon']) { const i = new Image(); i.src = SPRITES[k]; }
 // 0..1 구간을 pivot 기준으로 0..1 로 다시 편다 (전/후반 대칭 동작용)
 function k2(k, pivot) { return k < pivot ? k / pivot : (k - pivot) / (1 - pivot); }
 function refresh() { if (img) img.src = cur(); }
@@ -82,6 +96,9 @@ export function updateVmSprite(dt) {
   if (override) {
     if (img.src.indexOf(override.sprite) < 0) img.src = override.sprite;
     if (t > override.until) { override = null; refresh(); }
+  } else {
+    const want = cur();
+    if (img.src.indexOf(want) < 0) img.src = want;   // 당김 진행에 따른 활 스왑
   }
 
   // ADS 보간 — 근접/활은 조준경 자체가 없다 (활은 우클릭 = 시위 당김)
@@ -122,11 +139,20 @@ export function updateVmSprite(dt) {
       ar = 26 - 78 * s;                                       // 칼날 각도 회전
       scale = 1 + 0.12 * Math.sin(s * Math.PI);
     }
-    if (override.anim === 'pump') {          // 펌프 액션: 뒤로 당겼다(전반) 앞으로 민다(후반)
-      const p = k2(k, 0.42);
-      ax = (k < 0.42 ? -70 * p : -70 * (1 - p)) ;
-      ar = (k < 0.42 ? -7 * p : -7 * (1 - p));
-      ay = 10 * Math.sin(k * Math.PI);
+    if (override.anim === 'pump') {
+      // 3박자: 반동 킥(0~22%) → 포어엔드 철컥 당김(22~60%, 뒤+아래+롤) → 밀어 복귀(60~100%)
+      if (k < 0.22) { const p = k / 0.22; ay = -14 * Math.sin(p * Math.PI); }
+      else if (k < 0.6) {
+        const p = (k - 0.22) / 0.38, e = p * p * (3 - 2 * p);
+        ax = -85 * e; ay = 26 * e; ar = -9 * e;
+      } else {
+        const p = (k - 0.6) / 0.4, e = 1 - Math.pow(1 - p, 3);
+        ax = -85 * (1 - e); ay = 26 * (1 - e); ar = -9 * (1 - e);
+      }
+    }
+    if (override.anim === 'loose') {         // 릴리즈 팔로스루 — 앞으로 확 밀렸다 복귀
+      const e = 1 - Math.pow(1 - k, 2);
+      ax = -34 * (1 - e); ay = -10 * (1 - e); ar = -4 * (1 - e);
     }
     if (override.anim === 'nock') {          // 시위: 놓는 순간 앞으로 튀었다가 다음 화살을 당겨 온다
       if (k < 0.3) { const p = k / 0.3; ax = -46 * p; ar = 5 * p; }
@@ -182,10 +208,11 @@ export function updateVmSprite(dt) {
     // 풀차지 팝 — 다 당겨진 순간 살짝 부풀며 "지금 쏴라"
     if (drawT > 0.96) wscale += 0.03 * Math.sin(t * 0.02);
   } else if (wcfg.pellets) {
-    // 산탄총 — 총구가 화면 중앙까지 치솟아 시야를 갈랐다 → 축소 + 우하단 + 살짝 눕힘
-    wscale = 0.82;
-    wx = innerWidth * 0.05; wy = innerHeight * 0.055;
-    wr = 7;
+    // 산탄총 — 총구가 화면 중앙을 갈랐다 → 더 눕히고(+13°) 더 내려 총구가 크로스헤어
+    // 좌하단에 오게 한다. 낮게 겨눈 힙파이어 자세.
+    wscale = 0.76;
+    wx = innerWidth * 0.06; wy = innerHeight * 0.075;
+    wr = 13;
   }
 
   // ADS "견착": 총을 들어 올려 눈에 가져다 댄다 (배그 문법) — 중앙+위로 이동·확대·수평 정렬,

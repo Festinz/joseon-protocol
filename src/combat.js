@@ -367,6 +367,7 @@ let bowDrawStart = 0;
 state.on('bowDrawStart', () => {
   if (state.phase !== 'play' || state.paused || !canFire()) return;
   bowDrawStart = now();
+  state._bowDrawStart = bowDrawStart;   // UI 게이지가 진행률을 그린다
   state.bowDraw = true;
   state.emit('bowDrawBegin');
 });

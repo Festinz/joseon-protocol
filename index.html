@@ -172,6 +172,13 @@
   #evadepip.ready{color:#9fd8d4}
   #evadepip.ready .bar::after{background:#9fd8d4; box-shadow:0 0 8px rgba(159,216,212,.7)}
 
+  /* ── 활 당김 게이지: 크로스헤어 바로 아래, 당길 때만 ── */
+  #bowgauge{left:50%; top:calc(50% + 34px); transform:translateX(-50%); width:92px; height:5px;
+    border:1px solid rgba(233,226,207,.4); border-radius:3px; background:rgba(6,8,16,.55); z-index:12}
+  #bowgauge i{display:block; height:100%; width:0%; border-radius:2px; background:#d8b46a;
+    transition:background .12s}
+  #bowgauge.full i{background:#9fd8d4; box-shadow:0 0 9px rgba(159,216,212,.85)}
+
   /* ── ADS 조준경 (스팀펑크 모노큘러) ── */
   #scope{position:fixed; inset:0; z-index:9; pointer-events:none; opacity:0}
   #scope svg{width:100%; height:100%; display:block}
@@ -292,6 +299,7 @@
 <div id="vignette" class="hud"></div>
 <div id="dmgflash" class="hud"></div>
 <div id="flash" class="hud"></div>
+<div id="bowgauge" class="hud hidden"><i></i></div>
 <div id="xhair" class="hud">
   <svg viewBox="0 0 44 44">
     <g class="ring" fill="none" stroke="#e9e2cf" stroke-width="1.6" opacity=".95">

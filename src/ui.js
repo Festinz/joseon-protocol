@@ -260,6 +260,18 @@ export function updateUI() {
   document.querySelector('#exposure i').style.height = Math.round(exposedFraction() * 100) + '%';
   if (state.wheelOpen) updateWheelPick();
   if (state.phase === 'play') renderPeekBadge();
+  // 활 당김 게이지 — 위력 35%→100% 를 그대로 보여준다. 풀차지에 청록 글로우
+  {
+    const g = $('bowgauge');
+    if (state.bowDraw && state._bowDrawStart) {
+      const cfg = WEAPONS[state.currentWeapon];
+      const k = Math.min(1, (now() - state._bowDrawStart) / (cfg?.drawMs || 520));
+      const power = (cfg?.minPower ?? 0.35) + (1 - (cfg?.minPower ?? 0.35)) * k;
+      g.classList.remove('hidden');
+      g.firstElementChild.style.width = Math.round(power * 100) + '%';
+      g.classList.toggle('full', k >= 1);
+    } else g.classList.add('hidden');
+  }
   const danger = now() < dangerUntil;
   $('vignette').classList.toggle('warn', danger);
   $('dangermark').classList.toggle('show', danger);
